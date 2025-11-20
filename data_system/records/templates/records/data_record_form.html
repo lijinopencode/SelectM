@@ -41,7 +41,7 @@
             // 从data属性中获取按类别分组的日期信息
             const categoryDatesJson = dateInput.attr('data-category-dates');
             const categoryDates = categoryDatesJson ? JSON.parse(categoryDatesJson) : {};
-            console.log('所有类别下的日期信息:', categoryDates);
+            //console.log('所有类别下的日期信息:', categoryDates);
             
             // 存储当前选中类别下已存在的日期
             let currentExistingDates = [];
@@ -59,7 +59,7 @@
             function updateDateAvailability() {
                 // 获取选中的类别ID
                 const selectedCategory = categorySelect.val();
-                console.log('当前选择的类别ID:', selectedCategory);
+                //console.log('当前选择的类别ID:', selectedCategory);
                 
                 // 清空当前选中的日期
                 dateInput.val('');
@@ -70,7 +70,7 @@
                     dateInput.prop('disabled', true);
                     dateInput.addClass('disabled');
                     currentExistingDates = [];
-                    console.log('未选择类别，日期选择器已禁用');
+                    //console.log('未选择类别，日期选择器已禁用');
                     
                     // 销毁日期选择器
                     if (datePickerInitialized) {
@@ -94,10 +94,10 @@
                 // 检查各种可能的键类型
                 if (categoryDates.hasOwnProperty(stringKey)) {
                     foundDates = categoryDates[stringKey];
-                    console.log(`找到类别键 ${stringKey} (字符串类型)，对应的日期:`, foundDates);
+                    //console.log(`找到类别键 ${stringKey} (字符串类型)，对应的日期:`, foundDates);
                 } else if (categoryDates.hasOwnProperty(numberKey)) {
                     foundDates = categoryDates[numberKey];
-                    console.log(`找到类别键 ${numberKey} (数字类型)，对应的日期:`, foundDates);
+                    //console.log(`找到类别键 ${numberKey} (数字类型)，对应的日期:`, foundDates);
                 } else {
                     // 如果没有找到，遍历所有键进行比较
                     for (const key in categoryDates) {
@@ -105,7 +105,7 @@
                             // 尝试类型转换后的比较
                             if (String(key) === stringKey || Number(key) === numberKey) {
                                 foundDates = categoryDates[key];
-                                console.log(`通过遍历找到匹配的类别键 ${key}，对应的日期:`, foundDates);
+                                //console.log(`通过遍历找到匹配的类别键 ${key}，对应的日期:`, foundDates);
                                 break;
                             }
                         }
@@ -161,7 +161,7 @@
                     console.error('初始化日期选择器时出错:', e);
                 }
                 
-                console.log(`更新后当前类别下的已存在日期数量: ${currentExistingDates.length}`);
+                //console.log(`更新后当前类别下的已存在日期数量: ${currentExistingDates.length}`);
             }
             
             // 函数：检查选择的日期是否可用

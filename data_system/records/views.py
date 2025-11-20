@@ -277,6 +277,8 @@ class NumberComparisonView(ListView):
             
             # 直接设置属性
             record.numbers_with_zodiac = numbers_with_zodiac
+            # 同时设置普通数字列表属性，供JavaScript使用
+            record.numbers = numbers_list
         
         # 添加到上下文
         context['excluded_records'] = excluded_records
@@ -288,13 +290,14 @@ class NumberComparisonView(ListView):
             # 确保opened_number是字符串
             if daily_number.opened_number is not None:
                 daily_number.opened_number = str(daily_number.opened_number)
-                from .utils import get_zodiac_by_number
                 daily_number.opened_number_zodiac = get_zodiac_by_number(daily_number.opened_number)
             context['daily_number'] = daily_number
-        except DailyNumber.DoesNotExist:
+        except DailyNumber.DoesNotExist as e:
+            print(f"Error retrieving DailyNumber: {str(e)}")
             context['daily_number'] = None
+            context['daily_number_not_found'] = True  # 添加一个标记，方便模板判断
         
-        # 获取选中的记录ID
+        # 获取选中的记录ID - 确保缩进正确，在try-except块外
         context['selected_excluded_ids'] = self.request.GET.getlist('excluded_ids')
         context['selected_comparison_ids'] = self.request.GET.getlist('comparison_ids')
         
