@@ -1,0 +1,73 @@
+{% extends "records/base.html" %}
+
+{% block title %}{% if form.instance.pk %}编辑{% else %}添加{% endif %}每日数字记录 - 数据记录系统{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2>{% if form.instance.pk %}编辑每日数字记录{% else %}添加每日数字记录{% endif %}</h2>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.date.id_for_label }}" class="form-label">{{ form.date.label }}</label>
+                            {{ form.date }}
+                            {% if form.date.errors %}
+                                <div class="text-danger">{{ form.date.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.hit_number.id_for_label }}" class="form-label">{{ form.hit_number.label }}</label>
+                            {{ form.hit_number }}
+                            {% if form.hit_number.errors %}
+                                <div class="text-danger">{{ form.hit_number.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 使用自定义方法显示高亮的parsed_numbers -->
+                        <div class="mb-3">
+                            <label class="form-label">解析后的数字</label>
+                            <div class="form-control">
+                                {% if form.get_highlighted_parsed_numbers %}
+                                    {{ form.get_highlighted_parsed_numbers|safe }}
+                                {% else %}
+                                    <span class="text-muted">暂无数据</span>
+                                {% endif %}
+                            </div>
+                            <small class="form-text text-muted">匹配的数字将以黄色背景高亮显示</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.hit_time.id_for_label }}" class="form-label">{{ form.hit_time.label }}</label>
+                            {{ form.hit_time }}
+                            {% if form.hit_time.errors %}
+                                <div class="text-danger">{{ form.hit_time.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 原有的开出数字字段 -->
+                        <div class="mb-3">
+                            <label for="{{ form.opened_number.id_for_label }}" class="form-label">{{ form.opened_number.label }}</label>
+                            {{ form.opened_number }}
+                            {% if form.opened_number.errors %}
+                                <div class="text-danger">{{ form.opened_number.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'daily_number_list' %}" class="btn btn-secondary">返回列表</a>
+                            <button type="submit" class="btn btn-primary">保存</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "records/base.html" %}
+
+{% block content %}
+    <div class="jumbotron">
+        <h1 class="display-4">欢迎使用数据记录系统</h1>
+        <p class="lead">该系统用于按类别管理每日数据，支持数据的录入、编辑和查询。</p>
+        <hr class="my-4">
+        <p>请通过导航栏选择需要的功能：</p>
+        <a class="btn btn-primary btn-lg" href="{% url 'category_list' %}" role="button">类别管理</a>
+        <a class="btn btn-success btn-lg" href="{% url 'data_record_add' %}" role="button">录入数据</a>
+        <a class="btn btn-info btn-lg" href="{% url 'data_record_list' %}" role="button">查看数据</a>
+        <a class="btn btn-warning btn-lg" href="{% url 'number_comparison' %}" role="button">数字对比工具</a>
+    </div>
+{% endblock %}

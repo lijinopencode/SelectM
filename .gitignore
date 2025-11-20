@@ -1,0 +1,4 @@
+/data_system/records/__pycache__/*.pyc
+/data_system/records/migrations/__pycache__/*.pyc
+/data_system/records/templatetags/__pycache__/*.pyc
+/data_system/data_system/__pycache__/*.pyc

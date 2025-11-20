@@ -1,0 +1,216 @@
+{% extends "records/base.html" %}
+
+{% block title %}{% if form.instance.pk %}编辑数据记录{% else %}新增数据记录{% endif %} - 数据记录系统{% endblock %}
+
+{% block content %}
+    <!-- 现有表单内容 -->
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">保存</button>
+        <a href="{% url 'data_record_list' %}" class="btn btn-secondary">返回列表</a>
+    </form>
+    
+    {% if not form.instance.pk %}
+    <style>
+        /* 自定义日期选择器禁用日期的样式 */
+        .datepicker-days .date-unavailable {
+            background-color: #f5f5f5 !important;
+            color: #999 !important;
+            cursor: not-allowed !important;
+        }
+        /* 禁用状态下的日期输入框样式 */
+        input[type="date"].disabled {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+    </style>
+    <script>
+        // 使用jQuery的document ready来确保所有库都已加载
+        $(document).ready(function() {
+            // 获取类别选择框和日期选择器
+            const categorySelect = $('#id_category');
+            const dateInput = $('#id_record_date');
+            
+            // 检查元素是否存在
+            if (!categorySelect.length || !dateInput.length) {
+                console.error('未找到类别选择框或日期选择器元素');
+                return;
+            }
+            
+            // 从data属性中获取按类别分组的日期信息
+            const categoryDatesJson = dateInput.attr('data-category-dates');
+            const categoryDates = categoryDatesJson ? JSON.parse(categoryDatesJson) : {};
+            console.log('所有类别下的日期信息:', categoryDates);
+            
+            // 存储当前选中类别下已存在的日期
+            let currentExistingDates = [];
+            let datePickerInitialized = false;
+            
+            // 辅助函数：格式化日期为YYYY-MM-DD
+            function formatDate(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+            
+            // 函数：更新日期选择器的可用日期
+            function updateDateAvailability() {
+                // 获取选中的类别ID
+                const selectedCategory = categorySelect.val();
+                console.log('当前选择的类别ID:', selectedCategory);
+                
+                // 清空当前选中的日期
+                dateInput.val('');
+                
+                // 首先检查是否选择了类别
+                if (!selectedCategory || selectedCategory === '') {
+                    // 未选择类别时禁用日期选择器
+                    dateInput.prop('disabled', true);
+                    dateInput.addClass('disabled');
+                    currentExistingDates = [];
+                    console.log('未选择类别，日期选择器已禁用');
+                    
+                    // 销毁日期选择器
+                    if (datePickerInitialized) {
+                        try {
+                            dateInput.datepicker('destroy');
+                        } catch (e) {
+                            console.error('销毁日期选择器时出错:', e);
+                        }
+                        datePickerInitialized = false;
+                    }
+                    return;
+                }
+                
+                // 尝试多种方式匹配类别ID，解决类型不匹配问题
+                let foundDates = [];
+                
+                // 1. 直接尝试字符串和数字类型
+                const stringKey = String(selectedCategory);
+                const numberKey = Number(selectedCategory);
+                
+                // 检查各种可能的键类型
+                if (categoryDates.hasOwnProperty(stringKey)) {
+                    foundDates = categoryDates[stringKey];
+                    console.log(`找到类别键 ${stringKey} (字符串类型)，对应的日期:`, foundDates);
+                } else if (categoryDates.hasOwnProperty(numberKey)) {
+                    foundDates = categoryDates[numberKey];
+                    console.log(`找到类别键 ${numberKey} (数字类型)，对应的日期:`, foundDates);
+                } else {
+                    // 如果没有找到，遍历所有键进行比较
+                    for (const key in categoryDates) {
+                        if (categoryDates.hasOwnProperty(key)) {
+                            // 尝试类型转换后的比较
+                            if (String(key) === stringKey || Number(key) === numberKey) {
+                                foundDates = categoryDates[key];
+                                console.log(`通过遍历找到匹配的类别键 ${key}，对应的日期:`, foundDates);
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // 更新当前存在的日期列表
+                currentExistingDates = foundDates || [];
+                
+                // 启用日期选择器
+                dateInput.prop('disabled', false);
+                dateInput.removeClass('disabled');
+                
+                // 销毁现有的日期选择器（如果存在）
+                if (datePickerInitialized) {
+                    try {
+                        dateInput.datepicker('destroy');
+                    } catch (e) {
+                        console.error('销毁日期选择器时出错:', e);
+                    }
+                    datePickerInitialized = false;
+                }
+                
+                // 初始化新的日期选择器 - 使用bootstrap-datepicker的正确语法
+                try {
+                    dateInput.datepicker({
+                        format: 'yyyy-mm-dd',
+                        language: 'zh-CN',
+                        autoclose: true,
+                        todayHighlight: true,
+                        beforeShowDay: function(date) {
+                            // 使用自定义formatDate函数格式化日期
+                            const dateStr = formatDate(date);
+                            
+                            // 检查日期是否在已存在的日期列表中
+                            if (currentExistingDates.includes(dateStr)) {
+                                // 返回[可用状态, 自定义CSS类, 提示文本]
+                                return {
+                                    enabled: false,
+                                    classes: 'date-unavailable',
+                                    tooltip: '该日期已有记录'
+                                };
+                            }
+                            
+                            // 日期可用
+                            return {
+                                enabled: true
+                            };
+                        }
+                    });
+                    datePickerInitialized = true;
+                } catch (e) {
+                    console.error('初始化日期选择器时出错:', e);
+                }
+                
+                console.log(`更新后当前类别下的已存在日期数量: ${currentExistingDates.length}`);
+            }
+            
+            // 函数：检查选择的日期是否可用
+            function checkDateAvailability(selectedDate) {
+                if (currentExistingDates.includes(selectedDate)) {
+                    alert('该类别下的这个日期已经有记录，请选择其他日期');
+                    return false;
+                }
+                return true;
+            }
+            
+            // 监听日期变化事件
+            dateInput.on('change', function() {
+                const selectedDate = $(this).val();
+                if (selectedDate && !checkDateAvailability(selectedDate)) {
+                    $(this).val('');
+                }
+            });
+            
+            // 监听类别选择变化事件
+            categorySelect.on('change', updateDateAvailability);
+            
+            // 初始加载时更新日期可用性
+            updateDateAvailability();
+            
+            // 添加表单提交前的验证
+            const form = dateInput.closest('form');
+            if (form.length) {
+                form.on('submit', function(e) {
+                    const selectedDate = dateInput.val();
+                    const selectedCategory = categorySelect.val();
+                    
+                    // 验证是否已选择类别
+                    if (!selectedCategory || selectedCategory === '') {
+                        e.preventDefault();
+                        alert('请先选择类别');
+                        categorySelect.focus();
+                        return;
+                    }
+                    
+                    // 验证日期是否有效
+                    if (selectedDate && !checkDateAvailability(selectedDate)) {
+                        e.preventDefault(); // 阻止表单提交
+                        dateInput.val('');
+                        dateInput.focus();
+                    }
+                });
+            }
+        });
+    </script>
+    {% endif %}
+{% endblock %}

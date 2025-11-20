@@ -1,0 +1,229 @@
+{% extends "records/base.html" %}
+{% load records_extras %}
+
+{% block title %}数据管理 - 数据记录系统{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>数据管理</h2>
+        <a href="{% url 'data_record_add' %}" class="btn btn-primary">录入新数据</a>
+    </div>
+
+    <!-- 添加高亮样式 -->
+    <style>
+        .badge.match-highlight {
+            background-color: #ffd900 !important;
+            color: #000 !important;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 217, 0, 0.7); }
+            70% { box-shadow: 0 0 0 5px rgba(255, 217, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 217, 0, 0); }
+        }
+        /* 调试样式 */
+        .debug-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .debug-match {
+            background-color: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 3px;
+            padding: 8px;
+            margin: 5px 0;
+            font-size: 12px;
+            font-family: monospace;
+        }
+    </style>
+
+    <!-- 调试信息区域  
+    <div class="debug-info">
+        <h4>调试信息 - date_to_daily_number 内容：</h4>
+        {% if date_to_daily_number %}
+            <p>date_to_daily_number 字典内容：</p>
+            <ul>
+                {% for date, daily_number in date_to_daily_number.items %}
+                    <li>日期: {{ date }}, DailyNumber对象: {{ daily_number }}, opened_number: {{ daily_number.opened_number }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>date_to_daily_number 为空字典</p>
+        {% endif %}
+        
+        <p>数据记录数量: {{ records|length }}</p>
+        {% if records %}
+            <p>第一条记录日期: {{ records.0.record_date }}</p>
+            <p>第一条记录日期是否在date_to_daily_number中: {% if records.0.record_date in date_to_daily_number %}是{% else %}否{% endif %}</p>
+        {% endif %}
+    </div>
+!->
+    <!-- 筛选表单 -->
+    <form method="get" class="card p-3 mb-4">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="category_id" class="form-label">类别</label>
+                <select name="category_id" id="category_id" class="form-select">
+                    <option value="">全部</option>
+                    {% for category in categories %}
+                        <option value="{{ category.id }}" {% if request.GET.category_id == category.id|stringformat:"i" %}selected{% endif %}>
+                            {{ category.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="start_date" class="form-label">开始日期</label>
+                <input type="date" name="start_date" id="start_date" class="form-control" value="{{ request.GET.start_date }}">
+            </div>
+            <div class="col-md-3">
+                <label for="end_date" class="form-label">结束日期</label>
+                <input type="date" name="end_date" id="end_date" class="form-control" value="{{ request.GET.end_date }}">
+            </div>
+            <!--<div class="col-md-3">
+                <label for="zodiac" class="form-label">生肖</label>
+                <select name="zodiac" id="zodiac" class="form-select">
+                    <option value="">全部</option>
+                    {% for zodiac in chinese_zodiacs %}
+                        <option value="{{ zodiac }}" {% if request.GET.zodiac == zodiac %}selected{% endif %}>
+                            {{ zodiac }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            !-->
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-secondary w-100">筛选</button>
+            </div>
+        </div>
+    </form>
+
+    <!-- 数据列表 -->
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>类别</th>
+                <th>数据名字</th>
+                <th>记录日期</th>
+                <th>数据1（数值）</th>
+                <th>数据2（备注）</th>
+                <th>解析后的数字</th>
+                <th>处于杀码组</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in records %}
+            <tr>
+                <td>{{ record.id }}</td>
+                <td>{{ record.category.name }}</td>
+                <td>{{ record.data_name }}</td>
+                <td>{{ record.record_date }}</td>
+                <td>{{ record.data_value.value1 }}</td>
+                <td>{{ record.data_value.value2|default:"-" }}</td>
+                <td>
+                    <div class="bg-light p-2 border rounded">
+                        {% if record.parsed_numbers %}
+                            {% if record.record_date in date_to_daily_number %}
+                                <!-- 修复字典访问问题并添加详细调试 -->
+                                {% for date, daily_number in date_to_daily_number.items %}
+                                    {% if date == record.record_date %}
+                                        {% if daily_number.opened_number %}
+                                            <div class="text-xs text-muted mb-1">
+                                                当日开出数字: {{ daily_number.opened_number }}
+                                                {% with zodiac=daily_number.opened_number|get_zodiac %}
+                                                    {% if zodiac %}
+                                                        ({{ zodiac }})
+                                                    {% endif %}
+                                                {% endwith %}
+                                            </div>
+                                            {% for number in record.parsed_numbers %}
+                                                {% with zodiac=number|get_zodiac %}
+                                                    {% if zodiac %}
+                                                         
+                                                        <span 
+                                                            class="badge bg-primary {% if number|stringformat:'s' == daily_number.opened_number|stringformat:'s' %}match-highlight{% endif %} m-1" 
+                                                            title="{% if number|stringformat:'s' == daily_number.opened_number|stringformat:'s' %}与当日开出数字匹配!{% endif %} 生肖: {{ zodiac }}"
+                                                        >
+                                                            {{ number }}{% if zodiac %} ({{ zodiac }}){% endif %}
+                                                        </span>
+                                                    {% else %}
+                                                        <span 
+                                                            class="badge bg-primary {% if number|stringformat:'s' == daily_number.opened_number|stringformat:'s' %}match-highlight{% endif %} m-1" 
+                                                            title="{% if number|stringformat:'s' == daily_number.opened_number|stringformat:'s' %}与当日开出数字匹配!{% endif %}"
+                                                        >
+                                                            {{ number }}
+                                                        </span>
+                                                    {% endif %}
+                                                {% endwith %}
+                                            {% endfor %}
+                                        {% else %}
+                                            <div class="text-xs text-warning mb-1">
+                                                警告: 当日开出数字为空
+                                            </div>
+                                            {% for number in record.parsed_numbers %}
+                                                {% with zodiac=get_zodiac_by_number|default:'' %}
+                                                    <span class="badge bg-primary m-1" title="{% if zodiac %}生肖: {{ zodiac }}{% endif %}">
+                                                        {{ number }}{% if zodiac %} ({{ zodiac }}){% endif %}
+                                                    </span>
+                                                {% endwith %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-xs text-muted mb-1">
+                                    警告: 该记录日期在date_to_daily_number中不存在
+                                </div>
+                                {% for number in record.parsed_numbers %}
+                                {% with zodiac=number|get_zodiac %}
+                                    {% if zodiac %}
+                                        <span 
+                                            class="badge bg-primary {% if daily_number and number|stringformat:'s' == daily_number.opened_number|stringformat:'s' %}match-highlight{% endif %} m-1" 
+                                            title="{% if daily_number and number|stringformat:'s' == daily_number.opened_number|stringformat:'s' %}与当日开出数字匹配!{% endif %} 生肖: {{ zodiac }}"
+                                        >
+                                            {{ number }} ({{ zodiac }})
+                                        </span>
+                                    {% else %}
+                                        <span 
+                                            class="badge bg-primary {% if daily_number and number|stringformat:'s' == daily_number.opened_number|stringformat:'s' %}match-highlight{% endif %} m-1" 
+                                            title="{% if daily_number and number|stringformat:'s' == daily_number.opened_number|stringformat:'s' %}与当日开出数字匹配!{% endif %}"
+                                        >
+                                            {{ number }}
+                                        </span>
+                                    {% endif %}
+                                {% endwith %}
+                            {% endfor %}
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">暂无解析数字</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td>
+                    {% if record.is_excluded_group %}
+                        <span class="badge bg-danger">是</span>
+                    {% else %}
+                        <span class="badge bg-success">否</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'data_record_edit' record.id %}" class="btn btn-sm btn-warning">编辑</a>
+                    <a href="{% url 'data_record_delete' record.id %}" class="btn btn-sm btn-danger">删除</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" class="text-center">暂无数据，请录入</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

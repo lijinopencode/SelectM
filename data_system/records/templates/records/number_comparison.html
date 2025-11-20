@@ -1,0 +1,501 @@
+{% extends "records/base.html" %}
+{% load records_extras %}
+
+{% block title %}多列表数字对比工具 - 数据记录系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">多列表数字对比工具</h2>
+    
+    <!-- 日期选择表单 -->
+    <form method="get" class="mb-4">
+        <div class="form-row align-items-center">
+            <div class="col-md-4 mb-2">
+                <label for="date" class="sr-only">选择日期</label>
+                <input type="date" id="date" name="date" value="{{ selected_date }}" class="form-control">
+            </div>
+            <div class="col-md-2 mb-2">
+                <button type="submit" class="btn btn-primary">查询</button>
+            </div>
+            <div class="col-md-6">
+                {% if daily_number %}
+                <div class="alert alert-info">
+                    <strong>当日开出数字：</strong>{{ daily_number.opened_number }}
+                    {% if daily_number.opened_number_zodiac %}<span class="badge badge-secondary ml-2">{{ daily_number.opened_number_zodiac }}</span>{% endif %}
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    该日期暂无每日数字记录
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+    
+    <div class="row">
+        <!-- 排除列表 -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-warning text-white">
+                    <h3 class="card-title">排除列表</h3>
+                </div>
+                <div class="card-body">
+                    <!-- 排除数字集合显示框 -->
+                    <div class="mb-4 p-3 border rounded bg-light">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0">排除数字集合</h5>
+                            <div>
+                                <button id="do-excluded-number-btn" class="btn btn-sm btn-primary mr-1">解析</button>
+                                <button id="clear-excluded-numbers-btn" class="btn btn-sm btn-danger">清空</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <input type="text" id="excluded-numbers-input" class="form-control" placeholder="输入数字，支持多种分隔符，如：24.6，26.18.41,32，10.28">
+                        </div>
+                        
+                        <!-- 新增：逗号分隔的排除数字显示框 -->
+                        <div class="form-group">
+                            <label for="excluded-numbers-comma-display" class="small text-muted">排除数字（逗号分隔）：</label>
+                            <input type="text" id="excluded-numbers-comma-display" class="form-control" readonly>
+                        </div>
+                        
+                        <!-- 现有的标签显示方式 -->
+                        <div class="form-group">
+                            <label class="small text-muted">排除数字（可点击移除）：</label>
+                            <div id="excluded-numbers-display" class="mt-1"></div>
+                        </div>
+                    </div>
+                    
+                    {% if excluded_records %}
+                    <ul class="list-group">
+                        {% for record in excluded_records %}
+                        <li class="list-group-item">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input excluded-checkbox" value="{{ record.id }}"
+                                       {% if record.id|stringformat:'s' in selected_excluded_ids %}checked{% endif %}>
+                                <label class="form-check-label ml-2 font-weight-bold">{{ record.data_name }} ({{ record.category.name }})</label>
+                            </div>
+                            <div class="mt-3 numbers-container">
+                                <!-- 添加调试信息 -->
+                                <div style="display:none;">Debug: {{ record.numbers_with_zodiac|default:"None" }}</div>
+                                
+                                {% if record.numbers_with_zodiac %}
+                                <div style="display:block;">
+                                    {% for num_info in record.numbers_with_zodiac %}
+                                    <span class="badge badge-secondary m-0 p-1 excluded-number-badge" data-number="{{ num_info.number }}" style="min-width: 40px; display: inline-block; background-color: #ffc107; color: #212529; margin: 0 2px; padding: 2px 4px;">
+                                        {{ num_info.number }}
+                                        {% if num_info.zodiac %}<small class="d-block">({{ num_info.zodiac }})</small>{% endif %}
+                                        {% if daily_number.opened_number and num_info.number|stringformat:'s' == daily_number.opened_number|stringformat:'s' %}
+                                        <span class="badge badge-danger ml-1">HIT</span>
+                                        {% endif %}
+                                    </span>
+                                    {% empty %}
+                                    <span class="text-danger">数字列表为空</span>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <span class="text-danger">未找到数字数据</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">暂无排除列表数据</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 对比列表 -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title">对比列表</h3>
+                </div>
+                <div class="card-body">
+                    {% if comparison_records %}
+                    <ul class="list-group">
+                        {% for record in comparison_records %}
+                        <li class="list-group-item">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input comparison-checkbox" value="{{ record.id }}"
+                                       {% if record.id|stringformat:'s' in selected_comparison_ids %}checked{% endif %}>
+                                <label class="form-check-label ml-2 font-weight-bold">{{ record.data_name }} ({{ record.category.name }})</label>
+                            </div>
+                            <!-- 修改两个列表中的数字显示部分 -->
+                            <div class="mt-3 numbers-container">
+                                <!-- 添加调试信息 -->
+                                <div style="display:none;">Debug: {{ record.numbers_with_zodiac|default:"None" }}</div>
+                                
+                                {% if record.numbers_with_zodiac %}
+                                <div style="display:block;">
+                                    {% for num_info in record.numbers_with_zodiac %}
+                                    <span class="badge badge-secondary m-0 p-1" style="min-width: 40px; display: inline-block; background-color: #007bff; color: white; margin: 0 2px; padding: 2px 4px;" data-number="{{ num_info.number }}">
+                                        {{ num_info.number }}
+                                        {% if num_info.zodiac %}<small class="d-block">({{ num_info.zodiac }})</small>{% endif %}
+                                    </span>
+                                    {% empty %}
+                                    <span class="text-danger">数字列表为空</span>
+                                    {% endfor %}
+                                </div>
+                                <!-- 新增：显示有效数字和被排除数字的数量统计 -->
+                                <div class="mt-2 text-sm text-muted">
+                                    <span class="valid-count">有效数字: <strong>0</strong></span> | 
+                                    <span class="excluded-count">被排除数字: <strong>0</strong></span>
+                                </div>
+                                <!-- 新增：逗号分隔形式的数字集合显示框 -->
+                                <div class="mt-2">
+                                    <label class="form-label text-sm text-muted">数字集合：</label>
+                                    <input type="text" 
+                                           class="form-control form-control-sm comparison-numbers-display" 
+                                           readonly 
+                                           value="{% for num_info in record.numbers_with_zodiac %}{% if not forloop.first %},{% endif %}{{ num_info.number }}{% endfor %}" 
+                                           style="background-color: #f8f9fa; font-family: monospace;">
+                                </div>
+                                {% else %}
+                                <span class="text-danger">未找到数字数据</span>
+                                <!-- 当没有数字数据时也显示一个空的输入框 -->
+                                <div class="mt-2">
+                                    <label class="form-label text-sm text-muted">数字集合：</label>
+                                    <input type="text" 
+                                           class="form-control form-control-sm comparison-numbers-display" 
+                                           readonly 
+                                           value="" 
+                                           style="background-color: #f8f9fa; font-family: monospace;">
+                                </div>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">暂无对比列表数据</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 对比结果区域 -->
+    <div class="card mt-4">
+        <div class="card-header bg-success text-white">
+            <h3 class="card-title">对比结果</h3>
+        </div>
+        <div class="card-body">
+            <div id="comparison-result">
+                <p class="text-muted">请选择要对比的记录，然后点击对比按钮</p>
+            </div>
+            <button id="compare-btn" class="btn btn-success mt-3">开始对比</button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 数字容器样式优化 */
+.numbers-container {
+    max-height: none; /* 确保所有数字都能显示，不设置最大高度限制 */
+}
+
+/* 数字标签样式优化 */
+.badge {
+    font-size: 0.9rem;
+    line-height: 1.2;
+}
+
+/* 排除数字标签样式 */
+.excluded-number-tag {
+    background-color: #dc3545;
+    color: white;
+    margin: 2px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    cursor: pointer;
+    position: relative;
+}
+
+.excluded-number-tag .remove-icon {
+    margin-left: 4px;
+    font-weight: bold;
+}
+</style>
+
+<script>
+// 存储排除的数字集合
+let excludedNumbersSet = new Set();
+
+// 前端实现parse_number_group函数，与后端保持一致
+function parseNumberGroup(numberGroupStr) {
+    /*
+     * 解析多种分隔格式的数字组字符串为整数列表
+     * 支持点号(.)、逗号(,)和中文逗号(，)作为分隔符
+     * 可以处理混合格式如"24.6，26.18.41,32，10.28"
+     * 也可以处理包含文字的格式如"啊实打实的22,33,44"
+     * 数字限制在1到49范围内
+     */
+    if (!numberGroupStr || numberGroupStr.trim() === '') {
+        return [];
+    }
+    
+    try {
+        // 使用正则表达式匹配所有数字
+        // 匹配所有连续的数字字符，忽略非数字字符
+        const numbers = numberGroupStr.match(/\d+/g) || [];
+        
+        // 转换为整数列表并过滤，只保留1到49之间的数字
+        return numbers
+            .map(num => parseInt(num, 10))
+            .filter(num => num >= 1 && num <= 49);
+    } catch (e) {
+        // 捕获所有异常，返回空列表
+        return [];
+    }
+}
+
+// 初始化函数 - 移除前面的缩进
+$(document).ready(function() {
+    // 从URL参数中加载排除的数字
+    const urlParams = new URLSearchParams(window.location.search);
+    const excludedNumbers = urlParams.get('excluded_numbers');
+    if (excludedNumbers) {
+        // 使用parseNumberGroup函数解析URL中的数字
+        const parsedNumbers = parseNumberGroup(excludedNumbers);
+        parsedNumbers.forEach(num => {
+            excludedNumbersSet.add(num.toString());
+        });
+        updateExcludedNumbersDisplay();
+    }
+    
+    // 应用全局剔除样式和计算统计信息
+    applyGlobalExclusion();
+    
+    // 点击数字标签添加到排除集合
+    $('.excluded-number-badge').click(function() {
+        const number = $(this).data('number');
+        excludedNumbersSet.add(number.toString());
+        updateExcludedNumbersDisplay();
+        updateUrlParams();
+    });
+    
+    // 排除列表复选框点击事件
+    $('.excluded-checkbox').change(function() {
+        const recordId = $(this).val();
+        const isChecked = $(this).is(':checked');
+        const listItem = $(this).closest('li.list-group-item');
+        
+        // 获取该记录下的所有数字徽章
+        const numberBadges = listItem.find('.excluded-number-badge');
+        
+        // 根据复选框状态添加或移除数字
+        numberBadges.each(function() {
+            const number = $(this).data('number').toString();
+            if (isChecked) {
+                excludedNumbersSet.add(number);
+            } else {
+                excludedNumbersSet.delete(number);
+            }
+        });
+        
+        // 更新显示和URL参数
+        updateExcludedNumbersDisplay();
+        updateUrlParams();
+    });
+    
+    // 添加数字按钮点击事件
+    $('#do-excluded-number-btn').click(function() {
+        const inputVal = $('#excluded-numbers-input').val();
+        if (inputVal) {
+            // 使用parseNumberGroup函数解析输入
+            const parsedNumbers = parseNumberGroup(inputVal);
+            excludedNumbersSet.clear();
+            parsedNumbers.forEach(num => {
+                excludedNumbersSet.add(num.toString());
+            });
+            updateExcludedNumbersDisplay();
+            updateUrlParams();
+        }
+        syncExcludedCheckboxesToSet();
+    });
+    
+    // 新增：将排除列表选中的复选框对应的数字同步到excludedNumbersSet
+    function syncExcludedCheckboxesToSet() {
+        // 遍历所有排除列表中选中的复选框
+        $('.excluded-checkbox:checked').each(function() {
+            const checkbox = $(this);
+            const listItem = checkbox.closest('li.list-group-item');
+            
+            // 获取该记录下的所有数字徽章
+            const numberBadges = listItem.find('.excluded-number-badge');
+            
+            // 将所有数字添加到排除集合中
+            numberBadges.each(function() {
+                const number = $(this).data('number').toString();
+                excludedNumbersSet.add(number);
+            });
+        });
+        
+        // 更新显示和URL参数
+        updateExcludedNumbersDisplay();
+        updateUrlParams();
+    }
+    
+    // 清空按钮点击事件
+    $('#clear-excluded-numbers-btn').click(function() {
+        excludedNumbersSet.clear();
+        updateExcludedNumbersDisplay();
+        updateUrlParams();
+    });
+    
+    // 按Enter键添加数字
+    $('#excluded-numbers-input').keypress(function(e) {
+        if (e.which === 13) {
+            $('#do-excluded-number-btn').click();
+            return false;
+        }
+    });
+    
+    // 处理对比按钮点击事件
+    $('#compare-btn').click(function() {
+        // 收集选中的排除列表ID
+        var excludedIds = [];
+        $('.excluded-checkbox:checked').each(function() {
+            excludedIds.push($(this).val());
+        });
+        
+        // 收集选中的对比列表ID
+        var comparisonIds = [];
+        $('.comparison-checkbox:checked').each(function() {
+            comparisonIds.push($(this).val());
+        });
+        
+        // 构建查询参数
+        var params = new URLSearchParams(window.location.search);
+        params.set('date', $('#date').val());
+        
+        // 添加选中的ID
+        params.delete('excluded_ids');
+        excludedIds.forEach(id => params.append('excluded_ids', id));
+        
+        params.delete('comparison_ids');
+        comparisonIds.forEach(id => params.append('comparison_ids', id));
+        
+        // 添加排除的数字
+        if (excludedNumbersSet.size > 0) {
+            params.set('excluded_numbers', Array.from(excludedNumbersSet).join(','));
+        } else {
+            params.delete('excluded_numbers');
+        }
+        
+        // 重新加载页面
+        window.location.search = params.toString();
+    });
+});
+
+// 更新排除数字显示 - 只保留一个定义
+function updateExcludedNumbersDisplay() {
+    const displayContainer = $('#excluded-numbers-display');
+    const commaDisplayInput = $('#excluded-numbers-comma-display');
+    
+    displayContainer.empty();
+    
+    if (excludedNumbersSet.size === 0) {
+        displayContainer.append('<p class="text-muted">暂无排除数字</p>');
+        commaDisplayInput.val('');
+    } else {
+        // 转换为数组并排序
+        const sortedNumbers = Array.from(excludedNumbersSet).sort((a, b) => {
+            return parseInt(a) - parseInt(b);
+        });
+        
+        // 更新逗号分隔的显示框
+        commaDisplayInput.val(sortedNumbers.join(','));
+        
+        // 创建数字标签
+        sortedNumbers.forEach(number => {
+            const tag = $('<span>')
+                .addClass('excluded-number-tag')
+                .text(number)
+                .append($('<span>').addClass('remove-icon').text('×').click(function(e) {
+                    e.stopPropagation();
+                    excludedNumbersSet.delete(number);
+                    updateExcludedNumbersDisplay();
+                    updateUrlParams();
+                }));
+            displayContainer.append(tag);
+        });
+    }
+    
+    // 应用全局剔除样式和统计
+    applyGlobalExclusion();
+}
+
+// 更新URL参数
+function updateUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    if (excludedNumbersSet.size > 0) {
+        params.set('excluded_numbers', Array.from(excludedNumbersSet).join(','));
+    } else {
+        params.delete('excluded_numbers');
+    }
+    
+    // 更新URL但不重新加载页面
+    window.history.replaceState(null, '', '?' + params.toString());
+}
+
+// 新增：应用全局剔除样式和计算统计信息
+function applyGlobalExclusion() {
+    // 遍历所有对比列表中的数字徽章
+    $('.comparison-numbers-display').each(function() {
+        const displayInput = $(this);
+        const recordItem = displayInput.closest('li.list-group-item');
+        const numberBadges = recordItem.find('.numbers-container [data-number]');
+        
+        let validCount = 0;
+        let excludedCount = 0;
+        const validNumbers = [];
+        
+        // 检查每个数字是否在排除集合中
+        numberBadges.each(function() {
+            const badge = $(this);
+            const number = badge.data('number').toString();
+            
+            if (excludedNumbersSet.has(number)) {
+                // 被排除的数字：添加灰色和删除线样式
+                badge.css({
+                    'background-color': '#6c757d',
+                    'color': '#adb5bd',
+                    'text-decoration': 'line-through',
+                    'opacity': '0.7'
+                });
+                excludedCount++;
+            } else {
+                // 有效数字：确保使用正常样式
+                badge.css({
+                    'background-color': '#007bff',
+                    'color': 'white',
+                    'text-decoration': 'none',
+                    'opacity': '1'
+                });
+                validCount++;
+                validNumbers.push(number);
+            }
+        });
+        
+        // 更新统计信息
+        recordItem.find('.valid-count strong').text(validCount);
+        recordItem.find('.excluded-count strong').text(excludedCount);
+        
+        // 更新数字集合显示框，只显示有效数字
+        if (validNumbers.length > 0) {
+            // 排序后显示有效数字
+            const sortedValidNumbers = validNumbers.sort((a, b) => parseInt(a) - parseInt(b));
+            displayInput.val(sortedValidNumbers.join(','));
+        } else {
+            displayInput.val('');
+        }
+    });
+}
+
+</script>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "records/base.html" %}
+
+{% block title %}删除数据 - 数据记录系统{% endblock %}
+
+{% block content %}
+    <h2>确认删除</h2>
+    <p>您确定要删除数据「{{ object.data_name }}（{{ object.record_date }}）」吗？</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">确认删除</button>
+        <a href="{% url 'data_record_list' %}" class="btn btn-secondary">取消</a>
+    </form>
+{% endblock %}
