@@ -10,7 +10,7 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(DataRecord)
 class DataRecordAdmin(admin.ModelAdmin):
-    list_display = ("id", "category", "data_name", "record_date", "data_value", "updated_at")
-    list_filter = ("category", "record_date")  # 筛选器
+    list_display = ("id", "category", "data_name", "start_date", "data_value", "updated_at")
+    list_filter = ("category", "start_date")  # 筛选器
     search_fields = ("data_name",)
-    date_hierarchy = "record_date"  # 按日期层级筛选
+    date_hierarchy = "start_date"  # 按日期层级筛选

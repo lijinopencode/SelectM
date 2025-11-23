@@ -22,13 +22,19 @@ class DataRecordForm(forms.ModelForm):
     """数据记录表单"""
     class Meta:
         model = DataRecord
-        fields = ['category', 'record_date', 'data_value', 'is_excluded_group']
+        fields = ['category', 'data_name', 'start_date', 'end_date', 'data_value', 'is_excluded_group']
         widgets = {
             'category': forms.Select(attrs={'class': 'form-control'}),
-            'record_date': forms.DateInput(attrs={
+            'data_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'start_date': forms.DateInput(attrs={
                 'class': 'form-control', 
                 'type': 'date',
-                'id': 'id_record_date'  # 添加ID以便JavaScript操作
+                'id': 'id_start_date'
+            }),
+            'end_date': forms.DateInput(attrs={
+                'class': 'form-control', 
+                'type': 'date',
+                'id': 'id_end_date'
             }),
             'data_value': forms.Textarea(attrs={'class': 'form-control', 'rows': 5}),
             'is_excluded_group': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -37,23 +43,23 @@ class DataRecordForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # 只有在新建记录时（没有instance）才排除已存在的日期
+        # 只有在新建记录时（没有instance）才排除已存在的日期组合
         if not self.instance.pk:
-            # 获取所有已存在的记录，按类别分组
-            existing_records = DataRecord.objects.values('category_id', 'record_date')
+            # 获取所有已存在的记录，按类别和名称分组
+            existing_records = DataRecord.objects.values('category_id', 'data_name', 'start_date')
             
-            # 构建类别ID到日期列表的映射
-            category_dates = {}
+            # 构建类别ID和数据名称到日期列表的映射
+            category_name_dates = {}
             for record in existing_records:
-                category_id = record['category_id']
-                date_str = record['record_date'].strftime('%Y-%m-%d')
-                if category_id not in category_dates:
-                    category_dates[category_id] = []
-                category_dates[category_id].append(date_str)
+                key = f"{record['category_id']}_{record['data_name']}"
+                date_str = record['start_date'].strftime('%Y-%m-%d')
+                if key not in category_name_dates:
+                    category_name_dates[key] = []
+                category_name_dates[key].append(date_str)
             
-            # 将按类别分组的日期信息转换为JSON字符串
+            # 将按类别和名称分组的日期信息转换为JSON字符串
             import json
-            self.fields['record_date'].widget.attrs['data-category-dates'] = json.dumps(category_dates)
+            self.fields['start_date'].widget.attrs['data-category-name-dates'] = json.dumps(category_name_dates)
     
     def clean_data_value(self):
         """处理data_value字段"""

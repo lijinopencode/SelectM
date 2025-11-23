@@ -119,7 +119,7 @@ def get_numbers_with_zodiac(numbers_list):
         numbers_list = []
     
     # 添加调试信息
-    print(f"Input numbers_list: {numbers_list}")
+    #print(f"Input numbers_list: {numbers_list}")
     
     for num in numbers_list:
         try:
@@ -132,7 +132,7 @@ def get_numbers_with_zodiac(numbers_list):
                     'number': num_int,
                     'zodiac': zodiac or ''
                 })
-                print(f"Processed num: {num_int}, zodiac: {zodiac}")
+                #print(f"Processed num: {num_int}, zodiac: {zodiac}")
             else:
                 # 处理其他类型
                 result.append({
@@ -149,5 +149,5 @@ def get_numbers_with_zodiac(numbers_list):
     # 按数字从小到大排序
     result.sort(key=lambda x: x['number'] if isinstance(x['number'], int) else float('inf'))
     
-    print(f"Output result: {result}")
+    #print(f"Output result: {result}")
     return result

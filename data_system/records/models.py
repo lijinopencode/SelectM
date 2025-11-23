@@ -28,7 +28,9 @@ class DataRecord(models.Model):
         verbose_name="所属类别"
     )
     data_name = models.CharField(max_length=100, verbose_name="数据名字")
-    record_date = models.DateField(verbose_name="记录日期", default=datetime.date.today)  
+    # 替换record_date为start_date和end_date
+    start_date = models.DateField(verbose_name="开始日期", default=datetime.date.today)
+    end_date = models.DateField(verbose_name="结束日期", blank=True, null=True)
     # 将JSONField改为TextField以支持任意字符串输入
     data_value = models.TextField(verbose_name="数据内容", blank=True, null=True)
     # 新增parsed_numbers字段，用于存储解析出的数字列表
@@ -39,13 +41,16 @@ class DataRecord(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     def __str__(self):
-        return f"{self.data_name}（{self.record_date}）"
+        if self.end_date:
+            return f"{self.data_name}（{self.start_date} 至 {self.end_date}）"
+        else:
+            return f"{self.data_name}（{self.start_date} 起）"
 
     class Meta:
         verbose_name = "数据记录"
         verbose_name_plural = "数据记录"
-        ordering = ["-record_date", "data_name"]
-        unique_together = ["category", "record_date"]  # 修改为只按类别和日期进行唯一性约束
+        ordering = ["-start_date", "data_name"]
+        unique_together = ["category", "data_name", "start_date"]  # 更新唯一性约束
 
 # 添加DataRecord的信号接收器，用于自动解析数字
 @receiver(pre_save, sender=DataRecord)

@@ -59,8 +59,8 @@
         
         <p>数据记录数量: {{ records|length }}</p>
         {% if records %}
-            <p>第一条记录日期: {{ records.0.record_date }}</p>
-            <p>第一条记录日期是否在date_to_daily_number中: {% if records.0.record_date in date_to_daily_number %}是{% else %}否{% endif %}</p>
+            <p>第一条记录日期: {{ records.0.start_date }}</p>
+            <p>第一条记录日期是否在date_to_daily_number中: {% if records.0.start_date in date_to_daily_number %}是{% else %}否{% endif %}</p>
         {% endif %}
     </div>
 !->
@@ -84,7 +84,8 @@
             </div>
             <div class="col-md-3">
                 <label for="end_date" class="form-label">结束日期</label>
-                <input type="date" name="end_date" id="end_date" class="form-control" value="{{ request.GET.end_date }}">
+                <input type="date" name="end_date" id="end_date" class="form-control" 
+                       value="{% if request.GET.end_date %}{{ request.GET.end_date }}{% else %}{% now 'Y-m-d' %}{% endif %}">
             </div>
             <!--<div class="col-md-3">
                 <label for="zodiac" class="form-label">生肖</label>
@@ -125,16 +126,16 @@
                 <td>{{ record.id }}</td>
                 <td>{{ record.category.name }}</td>
                 <td>{{ record.data_name }}</td>
-                <td>{{ record.record_date }}</td>
+                <td>{{ record.start_date }}</td>
                 <td>{{ record.data_value.value1 }}</td>
                 <td>{{ record.data_value.value2|default:"-" }}</td>
                 <td>
                     <div class="bg-light p-2 border rounded">
                         {% if record.parsed_numbers %}
-                            {% if record.record_date in date_to_daily_number %}
+                            {% if record.start_date in date_to_daily_number %}
                                 <!-- 修复字典访问问题并添加详细调试 -->
                                 {% for date, daily_number in date_to_daily_number.items %}
-                                    {% if date == record.record_date %}
+                                    {% if date == record.start_date %}
                                         {% if daily_number.opened_number %}
                                             <div class="text-xs text-muted mb-1">
                                                 当日开出数字: {{ daily_number.opened_number }}
