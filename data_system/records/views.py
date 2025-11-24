@@ -258,8 +258,7 @@ class DailyNumberDeleteView(DeleteView):
         return super().delete(request, *args, **kwargs)
 
 
-# 在文件末尾添加NumberComparisonView类
-# 数字对比工具视图
+# 在文件末尾修改NumberComparisonView类
 class NumberComparisonView(ListView):
     model = DataRecord
     template_name = "records/number_comparison.html"
@@ -297,26 +296,18 @@ class NumberComparisonView(ListView):
         # 将日期格式化为字符串供表单使用
         context['selected_date'] = comparison_date.strftime('%Y-%m-%d')
         
-        # 按is_excluded_group分组数据
+        # 获取所有记录
         records = self.get_queryset()
         
-        # 排除列表（is_excluded_group=True）
-        excluded_records = list(records.filter(is_excluded_group=True))  # 转换为列表
-        # 对比列表（is_excluded_group=False）
-        comparison_records = list(records.filter(is_excluded_group=False))  # 转换为列表
-        
         # 导入必要的函数
-        from .utils import parse_number_group, get_numbers_with_zodiac
+        from .utils import parse_number_group, get_numbers_with_zodiac, get_zodiac_by_number
         
         # 处理所有记录的数字
-        for record in excluded_records + comparison_records:
+        for record in records:
             # 强制从data_value解析数字
             numbers_list = []
             if record.data_value:
-                # 直接解析data_value
                 numbers_list = parse_number_group(record.data_value)
-                # 添加调试信息
-                print(f"Record {record.id} - Parsed numbers: {numbers_list}")
             
             # 确保是列表
             if not isinstance(numbers_list, list):
@@ -324,16 +315,13 @@ class NumberComparisonView(ListView):
             
             # 生成带生肖的数字列表
             numbers_with_zodiac = get_numbers_with_zodiac(numbers_list)
-            print(f"Record {record.id} - Numbers with zodiac: {numbers_with_zodiac}")
             
             # 直接设置属性
             record.numbers_with_zodiac = numbers_with_zodiac
-            # 同时设置普通数字列表属性，供JavaScript使用
             record.numbers = numbers_list
         
-        # 添加到上下文
-        context['excluded_records'] = excluded_records
-        context['comparison_records'] = comparison_records
+        # 添加到上下文 - 将所有记录作为一个列表传递，不再分组
+        context['all_records'] = records
         
         # 获取该日期的每日数字记录（如果存在）
         try:
@@ -343,13 +331,7 @@ class NumberComparisonView(ListView):
                 daily_number.opened_number = str(daily_number.opened_number)
                 daily_number.opened_number_zodiac = get_zodiac_by_number(daily_number.opened_number)
             context['daily_number'] = daily_number
-        except DailyNumber.DoesNotExist as e:
-            print(f"Error retrieving DailyNumber: {str(e)}")
+        except DailyNumber.DoesNotExist:
             context['daily_number'] = None
-            context['daily_number_not_found'] = True  # 添加一个标记，方便模板判断
-        
-        # 获取选中的记录ID - 确保缩进正确，在try-except块外
-        context['selected_excluded_ids'] = self.request.GET.getlist('excluded_ids')
-        context['selected_comparison_ids'] = self.request.GET.getlist('comparison_ids')
         
         return context
