@@ -2,176 +2,263 @@
 {% load records_extras %}
 
 {% block title %}多列表数字对比工具 - 数据记录系统{% endblock %}
-{% block content %}
-    <div class="container mt-4 max-w-7xl">
-        <header class="text-center mb-6">
-            <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold mb-2">多列表数字对比工具</h2>
-            <p class="text-secondary">支持排除列表功能，可剔除不需要的数值后进行比较</p>
-        </header>
+{% block content %} 
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多列表数字对比工具（含排除列表）</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- 统一的 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        success: '#22c55e',
+                        warning: '#f97316',
+                        danger: '#ef4444',
+                        exclude: '#94a3b8',
+                        light: '#f8fafc',
+                        dark: '#1e293b',
+                        highlight: '#fef3c7',
+                        listColors: [
+                            '#3b82f6', '#8b5cf6', '#ec4899', '#ef4444',
+                            '#f97316', '#eab308', '#22c55e', '#06b6d4'
+                        ]
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto { content-visibility: auto; }
+            .scrollbar-thin { scrollbar-width: thin; }
+            .text-shadow { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); }
+            .transition-all-200 { transition: all 200ms ease-in-out; }
+            .number-highlight { 
+                background-color: theme('colors.highlight');
+                font-weight: bold;
+                border-radius: 3px;
+                padding: 0 2px;
+            }
+        }
+    </style>
+    <style>
+        .input-area:focus-within { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+        .result-item:hover { transform: translateX(4px); transition: all 0.2s ease; }
         
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+        .animate-delay-100 { animation-delay: 0.1s; }
+        .animate-delay-200 { animation-delay: 0.2s; }
+        .animate-delay-300 { animation-delay: 0.3s; }
+        
+        .list-card { transition: all 0.3s ease; }
+        .list-card:hover { 
+transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .delete-list-btn { 
+            opacity: 0; 
+            transition: opacity 0.2s ease; 
+        }
+        .list-card:hover .delete-list-btn { opacity: 1; }
+        
+        .exclude-card { border-left: 4px solid var(--tw-color-exclude); }
+        
+        /* 数字项样式（改为行内显示，增加间隔） */
+        .number-item {
+            display: inline-block;
+            margin: 0 8px 5px 0; /* 右侧间隔8px，底部间隔5px */
+            padding: 2px 4px;
+            cursor: pointer;
+            border-radius: 2px;
+            transition: all 0.15s ease;
+        }
+        .number-item:hover { background-color: rgba(254, 243, 199, 0.5); }
+        
+        /* 解析后的数字列表样式 */
+        .parsed-numbers-list {
+            border-top: 1px dashed #e2e8f0;
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        
+        .parsed-numbers-title {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .parsed-number-item {
+            display: inline-block; /* 改为行内块级元素 */
+            font-size: 0.875rem;
+            padding: 1px 3px;
+            margin: 0 6px 4px 0; /* 右侧和底部增加间隔 */
+            border-radius: 2px;
+        }
+        
+        .parsed-number-excluded {
+            color: #94a3b8;
+            text-decoration: line-through;
+        }
+        
+        /* 列表输入框保持原始格式显示 */
+        .list-input { white-space: pre-wrap; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- 标题区域 -->
+        <header class="text-center mb-8 animate-fadeIn">
+            <h1 class="text-[clamp(1.8rem,4vw,2.5rem)] font-bold text-dark text-shadow mb-2">多列表数字对比工具</h1>
+            <p class="text-secondary text-lg">支持排除列表功能，可剔除全局不需要的数值后进行比较</p>
+        </header>
+
         <!-- 工具栏 -->
-        <div class="flex flex-wrap justify-center gap-3 mb-6">
-            <button id="export-results" class="btn btn-success flex items-center" disabled>
-                <i class="fas fa-download mr-2"></i>导出结果
+        <div class="flex flex-wrap justify-center gap-4 mb-8 animate-fadeIn animate-delay-100">
+            <button id="addList" class="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-all-200 flex items-center">
+                <i class="fa fa-plus mr-2"></i>添加对比列表
             </button>
-            <button id="refresh-comparison" class="btn btn-warning flex items-center" disabled>
-                <i class="fas fa-refresh mr-2"></i>重新对比
+            <button id="loadSample" class="bg-secondary text-white px-4 py-2 rounded-md hover:bg-secondary/90 transition-all-200 flex items-center">
+                <i class="fa fa-database mr-2"></i>加载示例数据
             </button>
-            <button id="clear-highlights" class="btn btn-secondary flex items-center">
-                <i class="fas fa-eraser mr-2"></i>清除高亮
+            <button id="exportCSV" class="bg-success text-white px-4 py-2 rounded-md hover:bg-success/90 transition-all-200 flex items-center">
+                <i class="fa fa-download mr-2"></i>导出结果
+            </button>
+            <button id="refreshLists" class="bg-warning text-white px-4 py-2 rounded-md hover:bg-warning/90 transition-all-200 flex items-center">
+                <i class="fa fa-refresh mr-2"></i>重新显示列表
+            </button>
+            <button id="clearHighlights" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 transition-all-200 flex items-center">
+                <i class="fa fa-eraser mr-2"></i>清除高亮
             </button>
         </div>
-        
-        <!-- 日期选择表单 -->
-        <form method="get" class="mb-4">
-            <div class="form-row align-items-center">
-                <div class="col-md-4">
-                    <label for="date" class="sr-only">选择日期</label>
-                    <input type="date" id="date" name="date" value="{{ selected_date }}" class="form-control">
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary">查询</button>
-                </div>
-                <div class="col-md-6">
-                    {% if daily_number %}
-                    <div class="alert alert-info d-inline-flex align-items-center mb-0">
-                        <strong>当日开出数字：</strong>{{ daily_number.opened_number }}
-                        {% if daily_number.opened_number_zodiac %}<span class="badge badge-secondary ml-2">{{ daily_number.opened_number_zodiac }}</span>{% endif %}
+ 
+
+
+        <!-- 今日列表区域 -->
+        <div class="mb-8 animate-fadeIn animate-delay-100">
+            <div class="bg-white rounded-xl shadow-md p-5 input-area exclude-card list-card">
+                <div class="flex justify-between items-center mb-3"> 
+                    <h2 class="text-lg font-semibold text-dark flex items-center">
+                        <span class="inline-block w-3 h-3 rounded-full bg-exclude mr-2"></span>
+                       今日列表（日期范围内的所有列表）
+                    </h2>
+                    
+                    <!-- 日期选择器 -->
+                    <input type="date" id="datePicker" class="bg-white text-dark border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    
+                    <div class="flex space-x-2">
+                        <button class="text-sm text-secondary hover:text-exclude transition-all-200">
+                            <i class="fa fa-sort mr-1"></i>排序
+                        </button> 
                     </div>
-                    {% else %}
-                    <div class="alert alert-warning d-inline-block mb-0">
-                        该日期暂无每日数字记录
-                    </div>
-                    {% endif %}
                 </div>
+
+
+                 
+                <!-- 修改currentDataList的HTML结构 -->
+                <div id="currentDataList" 
+                    class="w-full h-80 p-3 border border-gray-200 rounded-lg overflow-y-auto scrollbar-thin">
+                    <div class="text-center text-gray-400 py-4">请选择日期查看数据...</div>
+                </div>
+                
+<div class="mt-3 text-sm text-secondary flex justify-between">
+                    <span id="lineCount">找到 0 条记录</span> 
+                </div>
+                  
             </div>
-        </form>
-        
-        <!-- 排除规则提示 -->
-        <div class="alert alert-light mb-4 border" role="alert">
-            <i class="fas fa-info-circle text-primary mr-2"></i>
-            <strong>排除规则：</strong>勾选「将此列表标记为排除项」后，该列表的所有数字会成为「排除数字库」，其他已选择的对比列表中，与排除数字库匹配的数字会自动排除（变灰+删除线），对比时不计入有效数字。
         </div>
 
-        <!-- 手动排除数字输入区 -->
-        <div class="card mb-4">
-            <div class="card-header bg-secondary text-white">
-                <h5 class="card-title mb-0">手动添加排除数字</h5>
-            </div>
-            <div class="card-body">
-                <div class="input-group">
-                    <input type="text" id="manual-exclude-input" class="form-control" placeholder="输入要排除的数字，用逗号分隔（例如：12,34,56）">
-                    <div class="input-group-append">
-                        <button id="add-manual-exclude" class="btn btn-outline-secondary">添加到排除库</button>
-                        <button id="clear-manual-exclude" class="btn btn-outline-danger">清空手动排除</button>
+        <!-- 排除列表区域 -->
+        <div class="mb-8 animate-fadeIn animate-delay-100">
+            <div class="bg-white rounded-xl shadow-md p-5 input-area exclude-card list-card">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-semibold text-dark flex items-center">
+                        <span class="inline-block w-3 h-3 rounded-full bg-exclude mr-2"></span>
+                        排除列表（所有对比列表都会剔除这些数值）
+                    </h2>
+                    <div class="flex space-x-2">
+                        <button id="sortExclude" class="text-sm text-secondary hover:text-exclude transition-all-200">
+                            <i class="fa fa-sort mr-1"></i>排序
+                        </button>
+                        <button id="clearExclude" class="text-sm text-secondary hover:text-danger transition-all-200">
+                            <i class="fa fa-trash-o mr-1"></i>清空
+                        </button>
                     </div>
                 </div>
-                <small class="form-text text-muted mt-2">手动添加的数字会额外加入排除数字库，不影响列表排除功能</small>
-            </div>
-        </div>
-        
-        <!-- 两个列表栏布局 - 上下两列 -->
-        <div class="mb-6">
-            <!-- 上方：所有列表（选择来源） -->
-            <div class="col-12 mb-4">
-                <div class="card">
-                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-                        <h3 class="card-title mb-0">所有可用列表</h3>
-                        <span class="badge badge-light text-info" id="available-count">0 个列表</span>
-                    </div>
-                    <div class="card-body">
-                        {% if all_records %}
-                        <div class="list-group" id="available-lists">
-                            {% for record in all_records %}
-                            <div class="list-group-item available-record-item" data-record-id="{{ record.id }}">
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input available-checkbox" value="{{ record.id }}">
-                                    <label class="form-check-label ml-2 font-weight-bold">{{ record.data_name }} ({{ record.category.name }})</label>
-                                </div>
-                                
-                                {% if record.numbers_with_zodiac %}
-                                <div class="mt-2 numbers-container">
-                                    <div class="number-badges">
-                                        {% for num_info in record.numbers_with_zodiac %}
-                                        <span class="badge badge-secondary m-0 p-1 number-badge" style="min-width: 40px; display: inline-block; background-color: #6c757d; color: white; margin: 0 2px; padding: 2px 4px;" data-number="{{ num_info.number }}">
-                                            {{ num_info.number }}
-                                            {% if num_info.zodiac %}<small class="d-block">({{ num_info.zodiac }})</small>{% endif %}
-                                        </span>
-                                        {% endfor %}
-                                    </div>
-                                    <div class="mt-2 text-sm text-muted">
-                                        数字总数: <strong>{{ record.numbers_with_zodiac|length }}</strong>
-                                    </div>
-                                </div>
-                                {% else %}
-                                <div class="mt-2 text-danger">
-                                    无数字数据
-                                </div>
-                                {% endif %}
-                            </div>
-                            {% endfor %}
-                        </div>
-                        {% else %}
-                        <p class="text-muted">该日期暂无数据记录</p>
-                        {% endif %}
-                    </div>
+                <textarea id="excludeInput" 
+                          class="w-full h-32 p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-exclude/50 scrollbar-thin resize-none"
+                          placeholder="请输入需要排除的数字，支持逗号、分号、空格、换行等分隔..."></textarea>
+                <div class="mt-3 text-sm text-secondary flex justify-between">
+                    <span id="excludeCount">0 个排除数值</span>
+                    <span id="excludeDuplicates" class="hidden"><i class="fa fa-exclamation-circle text-warning mr-1"></i>存在重复值</span>
                 </div>
-            </div>
-            
-            <!-- 下方：已选择的列表（对比列表） -->
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h3 class="card-title mb-0">已选择的对比列表</h3>
-                        <span class="badge badge-light text-primary" id="selected-count">0 个列表</span>
+                
+                <!-- 排除列表解析结果展示区 -->
+                <div class="parsed-numbers-list scrollbar-thin">
+                    <div class="parsed-numbers-title">
+                        <i class="fa fa-filter mr-1"></i>解析后的排除数值：
                     </div>
-                    <div class="card-body">
-                        <div class="list-group" id="selected-lists">
-                            <!-- 已选择的列表将通过JavaScript动态添加到这里 -->
-                            <div class="empty-message text-center p-4 text-muted">
-                                <p>请从上方选择要对比的列表（至少选择2个）</p>
-                            </div>
-                        </div>
+                    <div id="parsedExcludeNumbers" class="flex flex-wrap">
+                        <span class="text-xs text-gray-400">暂无排除数值</span>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <!-- 对比结果区域 -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+        <!-- 列表输入区域 -->
+        <div id="listsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <!-- 列表将通过JavaScript动态添加 -->
+        </div>
+
+        <!-- 结果展示区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <!-- 左侧结果 -->
             <div class="space-y-6">
-                <!-- 所有列表共有数字 -->
-                <div class="card result-card">
-                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                        <h3 class="card-title mb-0">
-                            <i class="fas fa-globe mr-2"></i>所有列表共有的数字
-                        </h3>
+                <!-- 所有列表共有的数字 -->
+                <div class="bg-white rounded-xl shadow-md p-5 animate-fadeIn animate-delay-200">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-dark flex items-center">
+                            <i class="fa fa-globe mr-2 text-success"></i>所有列表共有的数字
+                        </h2>
                         <div class="flex items-center">
-                            <span id="all-common-count" class="badge badge-light text-success mr-2">0</span>
-                            <span class="text-xs text-white flex items-center">
-                                <i class="fas fa-filter mr-1"></i>已排除: <span id="excluded-total-count">0</span>
+                            <span id="allCommonCount" class="bg-success/10 text-success text-xs px-2 py-0.5 rounded-full mr-2">0</span>
+                            <span class="text-xs text-exclude flex items-center">
+                                <i class="fa fa-filter mr-1"></i>已排除: <span id="excludedTotalCount">0</span>
                             </span>
                         </div>
                     </div>
-                    <div class="card-body">
-                        <div id="common-numbers-result" class="p-3 bg-light rounded max-h-60 overflow-y-auto">
-                            <p class="text-center text-muted">请先选择要对比的列表并点击"开始对比"</p>
-                        </div>
+                    <div id="allCommonNumbers" class="max-h-48 overflow-y-auto scrollbar-thin p-3 border border-gray-100 rounded-lg bg-gray-50">
+                        <p class="text-secondary text-sm italic text-center py-4">暂无共有数字</p>
                     </div>
                 </div>
 
-                <!-- 各列表独有的数字 -->
-                <div class="card result-card">
-                    <div class="card-header bg-primary text-white">
-                        <h3 class="card-title mb-0">
-                            <i class="fas fa-star mr-2"></i>各列表独有的数字
-                        </h3>
-                    </div>
-                    <div class="card-body">
-                        <div id="unique-numbers-result" class="p-3 bg-light rounded max-h-80 overflow-y-auto">
-                            <p class="text-center text-muted">请先选择要对比的列表并点击"开始对比"</p>
-                        </div>
+                <!-- 每个列表独有的数字 -->
+                <div class="bg-white rounded-xl shadow-md p-5 animate-fadeIn animate-delay-200">
+                    <h2 class="text-lg font-semibold text-dark mb-4 flex items-center">
+                        <i class="fa fa-star mr-2 text-primary"></i>各列表独有的数字
+                    </h2>
+                    <div id="uniquePerList" class="space-y-4 max-h-64 overflow-y-auto">
+                        <!-- 每个列表的独有数字将通过JavaScript动态添加 -->
                     </div>
                 </div>
             </div>
@@ -179,1201 +266,1058 @@
             <!-- 右侧结果 -->
             <div class="space-y-6">
                 <!-- 列表间比较 -->
-                <div class="card result-card">
-                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
-                        <h3 class="card-title mb-0">
-                            <i class="fas fa-exchange mr-2"></i>列表间比较
-                        </h3>
+                <div class="bg-white rounded-xl shadow-md p-5 animate-fadeIn animate-delay-300">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-dark flex items-center">
+                            <i class="fa fa-exchange mr-2 text-secondary"></i>列表间比较
+                        </h2>
+                        <div class="flex items-center">
+                            <label for="listCompareSelect" class="text-sm text-secondary mr-2">选择比较:</label>
+                            <select id="listCompareSelect" class="text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <!-- 选项将通过JavaScript动态添加 -->
+                            </select>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-md-5">
-                                <select id="list-compare-first" class="form-control">
-                                    <option value="">请选择第一个列表</option>
-                                    <!-- 选项将通过JavaScript动态添加 -->
-                                </select>
-                            </div>
-                            <div class="col-md-2 text-center">
-                                <span class="h4">VS</span>
-                            </div>
-                            <div class="col-md-5">
-                                <select id="list-compare-second" class="form-control">
-                                    <option value="">请选择第二个列表</option>
-                                    <!-- 选项将通过JavaScript动态添加 -->
-                                </select>
-                            </div>
-                        </div>
-                        <div id="list-compare-result" class="p-3 bg-light rounded max-h-40 overflow-y-auto">
-                            <p class="text-center text-muted">请选择两个列表并点击"对比这两个列表"</p>
-                        </div>
-                        <div class="text-center mt-3">
-                            <button id="list-compare-btn" class="btn btn-primary" disabled>对比这两个列表</button>
+                    <div id="listCompareResult" class="space-y-4">
+                        <div class="p-3 border border-gray-100 rounded-lg bg-gray-50 text-center">
+                            <p class="text-secondary text-sm italic">请选择要比较的列表</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- 统计信息 -->
-                <div class="card result-card">
-                    <div class="card-header bg-warning text-white">
-                        <h3 class="card-title mb-0">
-                            <i class="fas fa-bar-chart mr-2"></i>统计信息
-                        </h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="p-3 border border-gray-100 rounded-lg bg-light">
-                                <p class="text-sm text-secondary mb-1">对比列表总数</p>
-                                <p id="total-lists" class="text-xl font-bold">0</p>
-                            </div>
-                            <div class="p-3 border border-gray-100 rounded-lg bg-light">
-                                <p class="text-sm text-secondary mb-1">排除数值数量</p>
-                                <p id="exclude-stats-count" class="text-xl font-bold text-danger">0</p>
-                            </div>
-                            <div class="p-3 border border-gray-100 rounded-lg bg-light">
-                                <p class="text-sm text-secondary mb-1">过滤后总数字</p>
-                                <p id="filtered-total-numbers" class="text-xl font-bold">0</p>
-                            </div>
-                            <div class="p-3 border border-gray-100 rounded-lg bg-light">
-                                <p class="text-sm text-secondary mb-1">过滤后唯一数字</p>
-                                <p id="filtered-unique-numbers" class="text-xl font-bold">0</p>
-                            </div>
+                <div class="bg-white rounded-xl shadow-md p-5 animate-fadeIn animate-delay-300">
+                    <h2 class="text-lg font-semibold text-dark mb-4 flex items-center">
+                        <i class="fa fa-bar-chart mr-2 text-warning"></i>统计信息
+                    </h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-3 border border-gray-100 rounded-lg bg-gray-50">
+                            <p class="text-sm text-secondary mb-1">对比列表总数</p>
+                            <p id="totalLists" class="text-xl font-bold">0</p>
                         </div>
-                        
-                        <!-- 排除数字库显示 -->
-                        <div class="mt-4 p-3 bg-light rounded">
-                            <h5 class="mb-2">当前排除数字库</h5>
-                            <div id="excluded-library" class="text-center max-h-32 overflow-y-auto">
-                                <span class="text-muted">暂无排除项列表，无数字被排除</span>
-                            </div>
+                        <div class="p-3 border border-gray-100 rounded-lg bg-gray-50">
+                            <p class="text-sm text-secondary mb-1">排除数值数量</p>
+                            <p id="excludeStatsCount" class="text-xl font-bold text-exclude">0</p>
+                        </div>
+                        <div class="p-3 border border-gray-100 rounded-lg bg-gray-50">
+                            <p class="text-sm text-secondary mb-1">过滤后总数字</p>
+                            <p id="filteredTotalNumbers" class="text-xl font-bold">0</p>
+                        </div>
+                        <div class="p-3 border border-gray-100 rounded-lg bg-gray-50">
+                            <p class="text-sm text-secondary mb-1">过滤后唯一数字</p>
+                            <p id="filteredUniqueNumbers" class="text-xl font-bold">0</p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <!-- 对比按钮 -->
-        <div class="text-center mb-6">
-            <button id="compare-btn" class="btn btn-success btn-lg" disabled>
-                <i class="fas fa-calculator mr-2"></i>开始对比
-            </button>
-            <div id="compare-hint" class="text-muted mt-2">提示：至少选择2个非排除项列表才能进行对比</div>
-        </div>
+
+        <!-- 页脚 -->
+        <footer class="mt-8 text-center text-secondary text-sm">
+            <p>© 2025 多列表数字对比工具（含排除功能）</p>
+        </footer>
     </div>
-
-    <style>
-        /* 数字容器样式优化 */
-        .numbers-container {
-            max-height: 120px;
-            overflow-y: auto;
-            padding-right: 5px;
-        }
-
-        /* 数字标签样式优化 */
-        .badge {
-            font-size: 0.8rem;
-            line-height: 1.2;
-            margin-bottom: 4px;
-            transition: all 0.2s ease;
-        }
-
-        /* 数字标签悬停效果 */
-        .number-badge:not(.excluded-number):hover {
-            transform: scale(1.1);
-            z-index: 10;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        /* 选中列表项的数字样式 */
-        .selected-record-item .badge {
-            background-color: #007bff !important;
-            color: white !important;
-        }
-
-        /* 排除数字样式（强视觉效果） */
-        .excluded-number {
-            background-color: #e9ecef !important;
-            color: #6c757d !important;
-            opacity: 0.7;
-            text-decoration: line-through;
-            cursor: help;
-        }
-        
-        /* 排除项列表样式标识 */
-        .exclude-list-checkbox:checked + .form-check-label {
-            color: #dc3545;
-            font-weight: bold;
-        }
-        .exclude-list-item {
-            border-left: 4px solid #dc3545;
-            background-color: #f8f9fa;
-        }
-        
-        /* 排除数字库标签样式 */
-        .excluded-library-tag {
-            background-color: #dc3545;
-            color: white;
-            margin: 0 4px 4px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            display: inline-block;
-            transition: all 0.2s ease;
-        }
-        .excluded-library-tag:hover {
-            transform: scale(1.05);
-        }
-        
-        /* 排除数字管理区域样式 */
-        .excluded-numbers-management {
-            border-top: 1px solid #dee2e6;
-            padding-top: 10px;
-            margin-top: 10px;
-        }
-
-        /* 结果卡片样式 */
-        .result-card {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .result-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        /* 加载状态样式 */
-        .loading-indicator {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        /* 数字高亮样式 */
-        .number-highlight {
-            background-color: #fef3c7;
-            font-weight: bold;
-            border-radius: 3px;
-            padding: 0 2px;
-        }
-        
-        /* 滚动条美化 */
-        .scrollbar-thin {
-            scrollbar-width: thin;
-        }
-        
-        /* 动画效果 */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fadeIn {
-            animation: fadeIn 0.3s ease-out forwards;
-        }
-        
-        /* 结果数字容器样式 */
-        .result-number-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            justify-content: center;
-            align-items: center;
-            padding: 10px 0;
-        }
-        
-        /* 共有数字样式 - 确保文本可见 */
-        .badge-success.number-badge {
-            color: #000 !important;
-            font-weight: 500;
-        }
-    </style>
 
     <script>
         // 全局变量
-        const selectedRecordIds = new Set(); // 已选择的对比列表ID
-        const excludedListIds = new Set();   // 标记为排除项的列表ID
-        const excludedNumberLibrary = new Set(); // 排除数字库（所有排除项列表的数字）
-        const manualExcludedNumbers = new Set(); // 手动添加的排除数字
-        let allRecordsMap = new Map();       // 所有列表的完整信息映射
-        let highlightedValue = null;         // 当前高亮的数值
+        let lists = []; // 存储所有对比列表的数据
+        let excludeNumbers = []; // 存储需要排除的数值
+        const MAX_LISTS = 8; // 最大对比列表数量
+        const LIST_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']; // 对比列表标签
+        let highlightedValue = null; // 当前高亮的数值
         
-        // 初始化：页面加载完成后执行
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM加载完成，开始初始化');
-            buildAllRecordsMap();
-            bindAvailableListCheckboxes();
-            bindCompareButtons();
-            bindManualExcludeEvents();
-            updateAvailableCount();
-            updateTotalListsCount();
-            console.log('初始化完成');
-        });
-        
-        // 1. 构建所有列表信息映射（ID -> 名称、数字、生肖等）
-        function buildAllRecordsMap() {
-            console.log('构建所有列表信息映射');
-            const availableItems = document.querySelectorAll('.available-record-item');
-            console.log('可用列表数量:', availableItems.length);
+        // 示例数据
+        const sampleData = {
+            exclude: '1,49，5, 10, 5，15,鼠,1， 20.25;30/35|40:45',
+            lists: [
+                `10,狗，鼠,20, `,
+                `20, 40, 60, 80, 100, 120, 140
+22, 44, 66, 88, 110, 130
+2, 4, 6, 8, 10, 12
+102, 104, 106, 108`,
+                `30, 60, 90, 120, 150
+33, 66, 99, 132
+3, 6, 9, 12, 15
+103, 106, 109`
+            ]
+        };
+
+        // DOM元素
+        const listsContainer = document.getElementById('listsContainer');
+        const addListBtn = document.getElementById('addList');
+        const loadSampleBtn = document.getElementById('loadSample');
+        const exportCSVBtn = document.getElementById('exportCSV');
+        const refreshListsBtn = document.getElementById('refreshLists');
+        const clearHighlightsBtn = document.getElementById('clearHighlights');
+        const listCompareSelect = document.getElementById('listCompareSelect');
+        const listCompareResult = document.getElementById('listCompareResult');
+        const allCommonNumbers = document.getElementById('allCommonNumbers');
+        const allCommonCount = document.getElementById('allCommonCount');
+        const uniquePerList = document.getElementById('uniquePerList');
+        const totalLists = document.getElementById('totalLists');
+        const excludeInput = document.getElementById('excludeInput');
+        const excludeCount = document.getElementById('excludeCount');
+        const excludeDuplicates = document.getElementById('excludeDuplicates');
+        const sortExcludeBtn = document.getElementById('sortExclude');
+        const clearExcludeBtn = document.getElementById('clearExclude');
+        const excludeStatsCount = document.getElementById('excludeStatsCount');
+        const filteredTotalNumbers = document.getElementById('filteredTotalNumbers');
+        const filteredUniqueNumbers = document.getElementById('filteredUniqueNumbers');
+        const excludedTotalCount = document.getElementById('excludedTotalCount');
+        const parsedExcludeNumbers = document.getElementById('parsedExcludeNumbers');
+        const lineCount = document.getElementById('lineCount');
+
+		// 首先，添加生肖与号码的映射关系
+		const zodiacToNumbers = {
+			'鼠': [6, 18, 30, 42],
+			'牛': [5, 17, 29, 41],
+			'虎': [4, 16, 28, 40],
+			'兔': [3, 15, 27, 39],  // 注意原数据中的"免"应为"兔"，这里统一使用正确的"兔"
+			'龙': [2, 14, 26, 38],
+			'蛇': [1, 13, 25, 37, 49],
+			'马': [12, 24, 36, 48],
+			'羊': [11, 23, 35, 47],
+			'猴': [10, 22, 34, 46],
+			'鸡': [9, 21, 33, 45],
+			'狗': [8, 20, 32, 44],
+			'猪': [7, 19, 31, 43]
+		};
+		
+		  
+				// 首先，创建数字到生肖的反向映射
+		const numberToZodiac = {};
+		Object.entries(zodiacToNumbers).forEach(([zodiac, numbers]) => {
+			numbers.forEach(num => {
+				numberToZodiac[num] = zodiac;
+			});
+		});
+		 
+        // 初始化
+        function init() {
+            // 添加初始列表
+            addNewList();
+            addNewList();
+            initDatePicker();
+            // 绑定事件
+            addListBtn.addEventListener('click', addNewList);
+            loadSampleBtn.addEventListener('click', loadSampleData);
+            exportCSVBtn.addEventListener('click', exportResultsToCSV);
+            refreshListsBtn.addEventListener('click', refreshAllLists);
+            clearHighlightsBtn.addEventListener('click', clearAllHighlights);
+            listCompareSelect.addEventListener('change', handleListCompareChange);
+            excludeInput.addEventListener('input', handleExcludeInputChange);
+            sortExcludeBtn.addEventListener('click', sortExcludeList);
+             
             
-            availableItems.forEach(item => {
-                const recordId = item.getAttribute('data-record-id');
-                const name = item.querySelector('.form-check-label').textContent.trim();
-                const numberElements = item.querySelectorAll('[data-number]');
-                
-                // 提取数字和对应的生肖
-                const numbersWithZodiac = Array.from(numberElements).map(el => ({
-                    number: el.getAttribute('data-number'),
-                    zodiac: el.querySelector('small') ? el.querySelector('small').textContent.replace(/[()]/g, '') : ''
-                }));
-                
-                allRecordsMap.set(recordId, {
-                    id: recordId,
-                    name: name,
-                    numbersWithZodiac: numbersWithZodiac,
-                    numbers: numbersWithZodiac.map(item => item.number) // 纯数字数组
-                });
-            });
-            
-            console.log('列表映射构建完成，共', allRecordsMap.size, '个列表');
+            // 初始计算
+            updateAllComparisons();
         }
-        
-        // 2. 绑定可用列表的复选框事件（添加到对比列表）
-        function bindAvailableListCheckboxes() {
-            console.log('绑定可用列表复选框事件');
-            document.querySelectorAll('.available-checkbox').forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
-                    const recordId = this.value;
-                    console.log('列表选择状态变化:', recordId, '选中:', this.checked);
+
+                // 日期选择功能
+        function initDatePicker() {
+            const datePicker = document.getElementById('datePicker');
+
+            // 设置默认日期为今天
+            const today = new Date();
+            const formattedDate = today.toISOString().split('T')[0];
+            datePicker.value = formattedDate;
+            
+            // 初始化时加载今天的数据
+            loadRecordsByDate(formattedDate);
+            
+            // 日期变化时加载数据
+            datePicker.addEventListener('change', function() {
+                const selectedDate = this.value;
+                loadRecordsByDate(selectedDate);
+            });
+        }
+         function loadRecordsByDate(dateStr) {
+            console.log(`加载日期 ${dateStr} 的数据`);
+            const currentDataList = document.getElementById('currentDataList');
+            const lineCount = document.getElementById('lineCount');
+            
+            // 显示加载状态
+            currentDataList.innerHTML = '<div class="text-center text-gray-400 py-4">正在加载数据...</div>';
+            
+            // 发送API请求
+            fetch(`/api/records-by-date/?date=${dateStr}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('网络响应错误');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.error) {
+                        currentDataList.innerHTML = `<div class="text-center text-danger py-4">错误: ${data.error}</div>`;
+                        lineCount.textContent = `找到 0 条记录`;
+                        return;
+                    }
                     
-                    if (this.checked) {
-                        addToSelectedLists(recordId);
-                    } else {
-                        removeFromSelectedLists(recordId);
-                    }
-                });
-            });
-        }
-        
-        // 3. 绑定对比按钮事件
-        function bindCompareButtons() {
-            console.log('绑定对比按钮事件');
-            // 全部对比按钮
-            document.getElementById('compare-btn').addEventListener('click', function() {
-                console.log('点击开始对比按钮');
-                if (selectedRecordIds.size > 0) {
-                    showLoadingState(this);
-                    // 模拟处理延迟，提升用户体验
-                    setTimeout(() => {
-                        compareAllLists();
-                        hideLoadingState(this);
-                    }, 300);
-                } else {
-                    alert('请先选择要对比的列表');
-                }
-            });
-            
-            // 重新对比按钮
-            document.getElementById('refresh-comparison').addEventListener('click', function() {
-                console.log('点击重新对比按钮');
-                if (selectedRecordIds.size > 0) {
-                    showLoadingState(this);
-                    setTimeout(() => {
-                        compareAllLists();
-                        hideLoadingState(this);
-                    }, 300);
-                } else {
-                    alert('请先选择要对比的列表');
-                }
-            });
-            
-            // 清除高亮按钮
-            document.getElementById('clear-highlights').addEventListener('click', function() {
-                clearAllHighlights();
-            });
-            
-            // 两个列表对比按钮
-            document.getElementById('list-compare-btn').addEventListener('click', function() {
-                const list1Id = document.getElementById('list-compare-first').value;
-                const list2Id = document.getElementById('list-compare-second').value;
-                console.log('点击两个列表对比按钮:', list1Id, 'VS', list2Id);
-                
-                if (!list1Id || !list2Id) {
-                    alert('请选择两个要对比的列表');
-                    return;
-                }
-                
-                if (list1Id === list2Id) {
-                    alert('请选择不同的两个列表进行对比');
-                    return;
-                }
-                
-                if (list1Id && list2Id && list1Id !== list2Id) {
-                    showLoadingState(this);
-                    setTimeout(() => {
-                        compareTwoSpecificLists(list1Id, list2Id);
-                        hideLoadingState(this);
-                    }, 300);
-                }
-            });
-            
-            // 两个列表选择框变化事件
-            document.getElementById('list-compare-first').addEventListener('change', updateTwoListCompareBtnState);
-            document.getElementById('list-compare-second').addEventListener('change', updateTwoListCompareBtnState);
-
-            // 导出结果按钮
-            document.getElementById('export-results').addEventListener('click', exportResults);
-        }
-
-        // 3.1 绑定手动排除数字事件
-        function bindManualExcludeEvents() {
-            console.log('绑定手动排除数字事件');
-            // 添加手动排除数字
-            document.getElementById('add-manual-exclude').addEventListener('click', function() {
-                const input = document.getElementById('manual-exclude-input');
-                const numbers = input.value.trim().split(',').map(num => num.trim()).filter(num => num);
-                
-                if (numbers.length > 0) {
-                    numbers.forEach(num => {
-                        if (/^\d+$/.test(num)) { // 验证是否为数字
-                            manualExcludedNumbers.add(num);
-                            excludedNumberLibrary.add(num);
-                            console.log('添加手动排除数字:', num);
-                        }
-                    });
-                    input.value = '';
-                    updateAllSelectedListsNumberStyles();
-                    updateExcludedLibraryDisplay();
-                    updateStatistics();
-                    // 如果已有对比结果，重新对比
-                    if (selectedRecordIds.size > 0) {
-                        compareAllLists();
-                    }
-                } else {
-                    alert('请输入有效的数字，用逗号分隔');
-                }
-            });
-
-            // 清空手动排除数字
-            document.getElementById('clear-manual-exclude').addEventListener('click', function() {
-                if (manualExcludedNumbers.size > 0) {
-                    console.log('清空手动排除数字');
-                    // 从排除库中移除手动添加的数字
-                    manualExcludedNumbers.forEach(num => {
-                        let isStillExcluded = false;
-                        // 检查是否有排除列表包含该数字
-                        excludedListIds.forEach(excludedId => {
-                            const excludedRecord = allRecordsMap.get(excludedId);
-                            if (excludedRecord?.numbers.includes(num)) {
-                                isStillExcluded = true;
+                    // 更新计数显示
+                    lineCount.textContent = `找到 ${data.total} 条记录`;
+                    
+                    // 清空列表
+                    currentDataList.innerHTML = '';
+                    
+                    if (data.records.length > 0) {
+                        // 创建记录网格容器
+                        const recordsContainer = document.createElement('div');
+                        recordsContainer.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3';
+                        
+                        data.records.forEach(record => {
+                            const dateRange = record.end_date 
+                                ? `(${record.start_date} 至 ${record.end_date})` 
+                                : `(${record.start_date} 起)`;
+                            
+                            // 创建记录项
+                            const recordItem = document.createElement('div');
+                            recordItem.className = `p-3 rounded-lg border ${record.is_excluded_group ? 'border-exclude bg-exclude/5' : 'border-gray-200 bg-white'} min-h-[120px]`;
+                            
+                            // 记录头部信息
+                            const header = document.createElement('div');
+                            header.className = 'flex flex-col mb-2';
+                            header.innerHTML = `
+                                <div class="font-medium text-sm">${record.category} - ${record.data_name}</div>
+                                <div class="text-xs text-gray-500">${dateRange}</div>
+                            `;
+                            
+                            // 添加操作选项区域
+                            const optionsContainer = document.createElement('div');
+                            optionsContainer.className = 'flex items-center mb-2 space-x-4';
+                            
+                            // 添加选择复选框
+                            const selectCheckbox = document.createElement('div');
+                            selectCheckbox.className = 'flex items-center text-xs';
+                            selectCheckbox.innerHTML = `
+                                <input type="checkbox" id="select-record-${record.id}" class="mr-1" data-record-id="${record.id}">
+                                <label for="select-record-${record.id}">选择</label>
+                            `;
+                            
+                            // 添加排除项复选框
+                            const excludeCheckbox = document.createElement('div');
+                            excludeCheckbox.className = 'flex items-center text-xs';
+                            excludeCheckbox.innerHTML = `
+                                <input type="checkbox" id="exclude-record-${record.id}" class="mr-1" data-record-id="${record.id}" ${record.is_excluded_group ? 'checked' : ''}>
+                                <label for="exclude-record-${record.id}">排除项</label>
+                            `;
+                            
+                            // 将复选框添加到选项容器
+                            optionsContainer.appendChild(selectCheckbox);
+                            optionsContainer.appendChild(excludeCheckbox);
+                            
+                            // 数字列表容器
+                            const numbersContainer = document.createElement('div');
+                            numbersContainer.className = 'flex flex-wrap gap-1';
+                            
+                            // 添加数字标签
+                            record.numbers.forEach(number => {
+                                const numTag = document.createElement('span');
+                                numTag.className = 'inline-block px-2 py-1 bg-gray-100 text-xs rounded-full';
+                                numTag.textContent = number;
+                                numbersContainer.appendChild(numTag);
+                            });
+                            
+                            // 如果是排除组，添加标记
+                            if (record.is_excluded_group) {
+                                const excludedBadge = document.createElement('span');
+                                excludedBadge.className = 'ml-2 text-xs text-exclude';
+                                excludedBadge.textContent = '[排除组]';
+                                header.querySelector('div:first-child').appendChild(excludedBadge);
                             }
+                            
+                            // 添加复选框事件监听
+                            const selectBox = selectCheckbox.querySelector('input'); 
+                                selectBox.addEventListener('change', function() {
+                                const recordId = this.getAttribute('data-record-id');
+                                const isSelected = this.checked;
+                                console.log(`${isSelected ? '选择' : '取消选择'} 记录 ${recordId}`);
+                                                            // 如果选中记录，将其数字添加到对比列表
+                                    if (isSelected) {
+                                        // 获取当前记录的数字
+                                        const recordNumbers = record.numbers;
+                                        
+                                        // 查找空的对比列表（textarea值为空）
+                                        let targetList = lists.find(list => list.textarea.value.trim() === '');
+                                        
+                                        // 如果没有找到空列表
+                                        if (!targetList) {
+                                            // 如果列表数量未达到最大值，创建新列表
+                                            if (lists.length < MAX_LISTS) {
+                                                addNewList(record.category);
+                                                
+                                                targetList = lists[lists.length - 1]; // 使用新创建的列表
+                                            } else {
+                                                // 所有列表都有内容且已达到最大数量，提示用户
+                                                alert('所有对比列表都已包含内容，无法添加新内容。请先清空一个列表或删除一个列表。');
+                                                return;
+                                            }
+                                        } else {
+                                            // 更新现有列表的标签
+                                            const listIndex = lists.indexOf(targetList);
+                                            // 更新列表对象的label属性
+                                            targetList.label = record.category;
+                                            // 更新DOM中的标题元素
+                                            const listCard = document.querySelector(`.list-card[data-list-index="${listIndex}"]`);
+                                            if (listCard) {
+                                                const titleElement = listCard.querySelector('h2');
+                                                if (titleElement) {
+                                                    // 保留颜色指示器，只更新文本内容
+                                                    const colorIndicator = titleElement.querySelector('span');
+                                                    titleElement.innerHTML = `
+                                                        <span class="inline-block w-3 h-3 rounded-full" style="background-color: ${targetList.color}"></span>
+                                                        ${record.category}
+                                                    `;
+                                                }
+                                            }
+                                        }
+
+                                        // 将记录的数字添加到空的对比列表的textarea中，使用逗号分隔
+                                        targetList.textarea.value = recordNumbers.join(', ');
+                                        
+                                        // 触发input事件以更新解析结果
+                                        targetList.textarea.dispatchEvent(new Event('input'));
+                                        
+                                        // 显示成功提示 
+                                        console.log(`已将记录 ${record.category} - ${record.data_name} 的 ${recordNumbers.length} 个数字添加到对比列表 ${targetList.label}`);
+                                    } 
+                                }
+                            );
+                            
+                            const excludeBox = excludeCheckbox.querySelector('input');
+                            excludeBox.addEventListener('change', function() {
+                                const recordId = this.getAttribute('data-record-id');
+                                const isExcluded = this.checked;
+                                console.log(`${isExcluded ? '标记' : '取消标记'} 记录 ${recordId} 为排除项`);
+                                // 这里可以添加排除项状态改变的逻辑
+                                // 更新UI
+                                if (isExcluded) {
+                                    recordItem.classList.add('border-exclude', 'bg-exclude/5');
+                                    recordItem.classList.remove('border-gray-200', 'bg-white');
+                                } else {
+                                    recordItem.classList.remove('border-exclude', 'bg-exclude/5');
+                                    recordItem.classList.add('border-gray-200', 'bg-white');
+                                }
+                            });
+                            
+                            // 组装记录项
+                            recordItem.appendChild(header);
+                            recordItem.appendChild(optionsContainer);
+                            recordItem.appendChild(numbersContainer);
+                            recordsContainer.appendChild(recordItem);
                         });
-                        if (!isStillExcluded) {
-                            excludedNumberLibrary.delete(num);
-                        }
-                    });
-                    manualExcludedNumbers.clear();
-                    updateAllSelectedListsNumberStyles();
-                    updateExcludedLibraryDisplay();
-                    updateStatistics();
-                    // 如果已有对比结果，重新对比
-                    if (selectedRecordIds.size > 0) {
-                        compareAllLists();
+                        
+                        currentDataList.appendChild(recordsContainer);
+                    } else {
+                        currentDataList.innerHTML = '<div class="text-center text-gray-400 py-4">该日期范围内没有找到数据记录</div>';
                     }
-                } else {
-                    alert('暂无手动添加的排除数字');
-                }
-            });
+                })
+                .catch(error => {
+                    console.error('加载数据失败:', error);
+                    currentDataList.innerHTML = `<div class="text-center text-danger py-4">加载数据失败: ${error.message}</div>`;
+                    lineCount.textContent = '找到 0 条记录';
+                });
         }
-        
-        // 4. 添加列表到已选择对比列表
-        function addToSelectedLists(recordId) {
-            if (selectedRecordIds.has(recordId)) {
-                console.log('列表已在选中列表中:', recordId);
+
+
+        // 添加新对比列表
+        function addNewList(listName="") {
+            console.log("ssss"+listName)
+            if (lists.length >= MAX_LISTS) {
+                alert(`最多只能添加 ${MAX_LISTS} 个对比列表`);
                 return;
             }
+    
+            const listIndex = lists.length;
+            const listLabel = LIST_LABELS[listIndex];
+            // 优先使用传入的listName，如果为空则使用默认的listLabel
+            const displayLabel = listName.trim() !== "" ? listName : listLabel;
             
-            const record = allRecordsMap.get(recordId);
-            if (!record) {
-                console.error('未找到列表信息:', recordId);
-                return;
-            }
+            const listColor = getComputedStyle(document.documentElement)
+                .getPropertyValue(`--tw-color-listColors-${listIndex}`)
+                .trim() || '#3b82f6';
             
-            console.log('添加列表到选中列表:', record.name, 'ID:', recordId);
-            
-            // 创建已选择列表项DOM
-            const selectedItem = document.createElement('div');
-            selectedItem.className = `list-group-item selected-record-item ${excludedListIds.has(recordId) ? 'exclude-list-item' : ''} animate-fadeIn`;
-            selectedItem.setAttribute('data-record-id', recordId);
-            
-            // 构建数字标签（默认检查是否在排除数字库中）
-            let numbersHtml = '';
-            record.numbersWithZodiac.forEach(({ number, zodiac }) => {
-                const isExcluded = excludedNumberLibrary.has(number);
-                numbersHtml += `
-                    <span class="badge m-0 p-1 number-badge" style="min-width: 40px; display: inline-block; margin: 0 2px; padding: 2px 4px;" 
-                          data-number="${number}" 
-                          class="${isExcluded ? 'excluded-number' : ''}"
-                          title="${isExcluded ? '该数字已被排除项列表排除' : ''}">
-                        ${number}
-                        ${zodiac ? `<small class="d-block">(${zodiac})</small>` : ''}
-                    </span>
-                `;
-            });
-            
-            // 组装列表项HTML
-            selectedItem.innerHTML = `
-                <div class="form-check">
-                    <input type="checkbox" class="form-check-input selected-checkbox" value="${recordId}" checked>
-                    <label class="form-check-label ml-2 font-weight-bold">${record.name}</label>
+            // 创建列表卡片
+            const listCard = document.createElement('div');
+            listCard.className = 'bg-white rounded-xl shadow-md p-5 input-area animate-fadeIn list-card';
+            listCard.dataset.listIndex = listIndex;
+
+            listCard.innerHTML = `
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-semibold text-dark flex items-center">
+                        <span class="inline-block w-3 h-3 rounded-full" style="background-color: ${listColor}"></span>
+                        对比列表 ${displayLabel}
+                    </h2>
+                    <div class="flex space-x-2">
+                        <button class="sort-list text-sm text-secondary hover:text-primary transition-all-200">
+                            <i class="fa fa-sort mr-1"></i>排序（按值）
+                        </button>
+                        <button class="clear-list text-sm text-secondary hover:text-danger transition-all-200">
+                            <i class="fa fa-trash-o mr-1"></i>清空
+                        </button>
+                        <button class="delete-list delete-list-btn text-sm text-secondary hover:text-danger transition-all-200 ${lists.length <= 2 ? 'opacity-0 cursor-not-allowed' : ''}">
+                            <i class="fa fa-times mr-1"></i>删除
+                        </button>
+                    </div>
                 </div>
-                <div class="mt-2 numbers-container scrollbar-thin">
-                    <div class="number-badges">${numbersHtml}</div>
-                    <div class="mt-2 text-sm">
-                        <span>有效数字: <strong>${getValidNumberCount(recordId)}</strong></span> | 
-                        <span>被排除数字: <strong>${getExcludedNumberCount(recordId)}</strong></span>
+                <textarea class="list-input w-full h-32 p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 scrollbar-thin resize-none"
+                          placeholder="请输入数字，支持逗号、分号、空格、换行等分隔..."></textarea>
+                <div class="mt-3 text-sm text-secondary flex justify-between">
+                    <div>
+                        <span class="list-count">0 个数字</span>
+                        <span class="list-excluded ml-2 text-xs text-exclude">(已排除: 0)</span>
                     </div>
-                    <div class="mt-2 excluded-numbers-management">
-                        <div class="form-check">
-                            <input type="checkbox" class="form-check-input exclude-list-checkbox" 
-                                   id="exclude-list-${recordId}" ${excludedListIds.has(recordId) ? 'checked' : ''}>
-                            <label class="form-check-label ml-2" for="exclude-list-${recordId}">将此列表标记为排除项</label>
-                        </div>
+                    <span class="list-duplicates hidden"><i class="fa fa-exclamation-circle text-warning mr-1"></i>存在重复值</span>
+                </div>
+                
+                <!-- 解析后的数字列表展示区 -->
+                <div class="parsed-numbers-list scrollbar-thin">
+                    <div class="parsed-numbers-title">
+                        <i class="fa fa-check-circle mr-1" style="color: ${listColor}"></i>解析后的数值（已排除不需要的值）：
                     </div>
+                    <div class="parsed-numbers-container" data-list-index="${listIndex}">
+                        <span class="text-xs text-gray-400">暂无解析数值</span>
+                    </div>
+                </div>
+                
+                <div class="mt-2 text-xs text-secondary">
+                    <i class="fa fa-info-circle mr-1"></i>提示: 输入后自动解析，下方显示处理后的数值列表
                 </div>
             `;
             
-            // 绑定该列表项的事件
-            bindSelectedItemEvents(selectedItem, recordId);
+            // 添加到容器
+            listsContainer.appendChild(listCard);
             
-            // 添加到DOM
-            const selectedListsContainer = document.getElementById('selected-lists');
-            selectedListsContainer.querySelector('.empty-message')?.remove();
-            selectedListsContainer.appendChild(selectedItem);
+            // 绑定事件
+            const textarea = listCard.querySelector('.list-input');
+            const sortBtn = listCard.querySelector('.sort-list');
+            const clearBtn = listCard.querySelector('.clear-list');
+            const deleteBtn = listCard.querySelector('.delete-list');
+            const parsedNumbersContainer = listCard.querySelector('.parsed-numbers-container');
             
-            // 更新状态
-            selectedRecordIds.add(recordId);
-            updateCompareBtnState();
-            updateListCompareSelects();
-            updateExcludedLibraryDisplay();
-            updateSelectedCount();
-            updateTotalListsCount();
+            // 输入时仅解析数字，不改变原始格式
+            textarea.addEventListener('input', () => {
+                handleListInputChange(listIndex);
+            });
+            sortBtn.addEventListener('click', () => sortList(listIndex));
+            clearBtn.addEventListener('click', () => clearList(listIndex));
+            deleteBtn.addEventListener('click', () => deleteList(listIndex));
+            
+            // 为解析后的数字添加点击高亮事件
+            parsedNumbersContainer.addEventListener('click', handleNumberClick);
+            
+            // 初始化列表数据
+            lists.push({
+                label: displayLabel,
+                color: listColor,
+                textarea: textarea,
+                countElement: listCard.querySelector('.list-count'),
+                duplicatesElement: listCard.querySelector('.list-duplicates'),
+                excludedElement: listCard.querySelector('.list-excluded'),
+                parsedContainer: parsedNumbersContainer,
+                numbers: [],
+                filteredNumbers: []
+            });
+            
+            // 更新UI
+            updateDeleteButtonStates();
+            updateListCompareOptions();
             updateStatistics();
-            
-            console.log('列表添加完成，当前选中列表数量:', selectedRecordIds.size);
         }
-        
-        // 5. 绑定已选择列表项的事件（取消选择、标记排除项）
-        function bindSelectedItemEvents(selectedItem, recordId) {
-            // 取消选择事件
-            selectedItem.querySelector('.selected-checkbox').addEventListener('change', function() {
-                if (!this.checked) {
-                    removeFromSelectedLists(recordId);
-                    // 同步取消左侧可用列表的勾选
-                    document.querySelector(`.available-checkbox[value="${recordId}"]`).checked = false;
-                }
+
+        // 处理对比列表输入变化（不修改原始输入格式）
+        function handleListInputChange(listIndex) {
+            const list = lists[listIndex];
+            const numbers = parseInput(list.textarea.value); // 解析数字但不改变输入框内容
+            
+            // 检查重复值
+            const hasDuplicates = numbers.length !== new Set(numbers.map(String)).size;
+            list.duplicatesElement.classList.toggle('hidden', !hasDuplicates);
+            
+            // 保存原始数字
+            list.numbers = numbers;
+            
+            // 应用排除列表
+            applyExcludeList();
+            
+            // 更新计数显示
+            list.countElement.textContent = `${list.filteredNumbers.length} 个数字`;
+            
+            // 更新排除计数
+            const excludedCount = list.numbers.length - list.filteredNumbers.length;
+            list.excludedElement.textContent = `(已排除: ${excludedCount})`;
+            
+            // 显示解析后的数字列表（包括所有原始数字，标记已排除的）
+            displayParsedNumbers(list);
+            
+            // 更新比较结果
+            updateAllComparisons();
+        }
+		 
+			// 修改显示解析后的数字列表（添加生肖显示）
+			function displayParsedNumbers(list) {
+				if (list.numbers.length === 0) {
+					list.parsedContainer.innerHTML = '<span class="text-xs text-gray-400">暂无解析数值</span>';
+					return;
+				}
+				
+				// 创建所有数字的展示元素，已排除的数字添加特殊样式，并显示生肖
+				const numberElements = list.numbers.map(num => {
+					const isExcluded = excludeNumbers.some(excludeNum => areValuesEqual(num, excludeNum));
+					const isHighlighted = highlightedValue !== null && areValuesEqual(num, highlightedValue);
+					const zodiac = typeof num === 'number' ? numberToZodiac[num] : '';
+					
+					const classes = [
+						'parsed-number-item',
+						isExcluded ? 'parsed-number-excluded' : '',
+						isHighlighted ? 'number-highlight' : ''
+					].filter(Boolean).join(' ');
+					
+					// 添加上生肖显示，用括号包裹
+					const zodiacText = zodiac ? `<span class="text-xs text-gray-500 ml-1">(${zodiac})</span>` : '';
+					
+					return `<span class="${classes}" 
+								  data-value="${String(num).replace(/"/g, '&quot;')}">${num}${zodiacText}</span>`;
+				});
+				
+				list.parsedContainer.innerHTML = numberElements.join('');
+			}
+
+			// 修改显示解析后的排除列表（添加生肖显示）
+			function displayParsedExcludeNumbers() {
+				if (excludeNumbers.length === 0) {
+					parsedExcludeNumbers.innerHTML = '<span class="text-xs text-gray-400">暂无排除数值</span>';
+					return;
+				}
+				
+				const numberElements = excludeNumbers.map(num => {
+					const isHighlighted = highlightedValue !== null && areValuesEqual(num, highlightedValue);
+					const highlightClass = isHighlighted ? 'number-highlight' : '';
+					const zodiac = typeof num === 'number' ? numberToZodiac[num] : '';
+					const zodiacText = zodiac ? `<span class="text-xs text-gray-500 ml-1">(${zodiac})</span>` : '';
+					
+					return `<span class="parsed-number-item ${highlightClass}" 
+								  data-value="${String(num).replace(/"/g, '&quot;')}">${num}${zodiacText}</span>`;
+				});
+				
+				parsedExcludeNumbers.innerHTML = numberElements.join('');
+			}
+		
+ 
+
+		// 修改解析输入函数，使其支持解析生肖名称
+		function parseInput(input) {
+			if (!input.trim()) return [];
+			
+			// 先处理生肖名称，替换为对应的数字
+			let processedInput = input;
+			
+			// 遍历生肖映射表，替换所有出现的生肖名称
+			Object.keys(zodiacToNumbers).forEach(zodiac => {
+				// 使用正则表达式全局替换生肖名称，避免部分匹配
+				const regex = new RegExp(zodiac, 'g');
+				// 将生肖替换为对应的数字，用逗号分隔
+				processedInput = processedInput.replace(regex, zodiacToNumbers[zodiac].join(','));
+			});
+			  
+			// 处理可能的错别字"免"为"兔"
+			processedInput = processedInput.replace(/免/g, zodiacToNumbers['兔'].join(','));
+			let numbers = processedInput.split('\n')
+				.flatMap(line => line.trim().split(/[,;，。./|: \t]+/)) // 支持多种分隔符
+				.filter(part => part.trim() !== '') // 过滤空值
+				.map(part => {
+					const num = parseFloat(part);
+					// 保持数字格式，如"06"应保留为6还是字符串"06"根据需求决定
+					// 这里转换为数字，会自动去掉前导零
+					return isNaN(num) ? part.trim() : num;
+				}) 
+				.filter(num => num !== null)
+				.filter(num => num >= 1 && num <= 49);
+			// 然后按原来的逻辑解析处理后的输入
+			const uniqueNumbers = [...new Set(numbers)]; // 去重
+     
+			return uniqueNumbers.sort((a, b) => a - b);
+		}
+		 
+
+        // 重新显示所有列表（刷新UI并保留数据）
+        function refreshAllLists() {
+            // 保存所有列表的数据（保留原始输入格式）
+            const listsData = lists.map(list => ({
+                label: list.label,
+                color: list.color,
+                value: list.textarea.value, // 保留原始输入内容
+                numbers: list.numbers
+            }));
+            
+            // 清空容器
+            listsContainer.innerHTML = '';
+            lists = [];
+            
+            // 重新创建所有列表
+            listsData.forEach((data, index) => {
+                addNewList();
+                // 恢复原始输入格式
+                const newList = lists[index];
+                newList.textarea.value = data.value;
+                newList.numbers = data.numbers;
+                // 触发更新
+                newList.textarea.dispatchEvent(new Event('input'));
             });
             
-            // 标记/取消标记排除项事件
-            selectedItem.querySelector('.exclude-list-checkbox').addEventListener('change', function() {
-                const isExcluded = this.checked;
-                console.log('标记列表排除状态:', recordId, '排除:', isExcluded);
-                
-                if (isExcluded) {
-                    // 加入排除项列表，数字添加到排除库
-                    excludedListIds.add(recordId);
-                    selectedItem.classList.add('exclude-list-item');
-                    const record = allRecordsMap.get(recordId);
-                    record.numbers.forEach(num => {
-                        excludedNumberLibrary.add(num);
-                        console.log('添加排除数字:', num);
-                    });
-                } else {
-                    // 移除排除项列表，数字从排除库中删除（需检查其他排除项列表是否包含该数字）
-                    excludedListIds.delete(recordId);
-                    selectedItem.classList.remove('exclude-list-item');
-                    const record = allRecordsMap.get(recordId);
-                    record.numbers.forEach(num => {
-                        // 检查是否有其他排除项列表包含该数字
-                        let isStillExcluded = false;
-                        excludedListIds.forEach(excludedId => {
-                            const excludedRecord = allRecordsMap.get(excludedId);
-                            if (excludedRecord?.numbers.includes(num)) {
-                                isStillExcluded = true;
-                            }
-                        });
-                        // 同时检查手动排除的数字
-                        if (!isStillExcluded && !manualExcludedNumbers.has(num)) {
-                            excludedNumberLibrary.delete(num);
-                            console.log('移除排除数字:', num);
-                        }
-                    });
-                }
-                
-                // 更新所有已选择列表的数字排除状态
-                updateAllSelectedListsNumberStyles();
-                // 更新排除数字库显示
-                updateExcludedLibraryDisplay();
-                // 更新对比按钮状态
-                updateCompareBtnState();
-                updateStatistics();
-                // 更新对比结果（如果已对比过）
-                if (selectedRecordIds.size > 0) {
-                    compareAllLists();
-                }
+            // 重新应用排除列表
+            handleExcludeInputChange();
+            
+            // 显示刷新提示
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-4 right-4 bg-success text-white px-4 py-2 rounded-md shadow-lg z-50 animate-fadeIn';
+            toast.textContent = '列表已重新显示';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        // 处理排除列表输入变化
+        function handleExcludeInputChange() {
+            const numbers = parseInput(excludeInput.value);
+            
+            // 检查重复值
+            const hasDuplicates = numbers.length !== new Set(numbers.map(String)).size;
+            excludeDuplicates.classList.toggle('hidden', !hasDuplicates);
+            
+            // 保存排除数字
+            excludeNumbers = numbers;
+            
+            // 更新计数显示
+            excludeCount.textContent = `${excludeNumbers.length} 个排除数值`;
+            
+            // 应用排除列表到所有对比列表
+            applyExcludeList();
+            
+            // 更新所有列表的排除计数和解析数字显示
+            lists.forEach(list => {
+                const excludedCount = list.numbers.length - list.filteredNumbers.length;
+                list.excludedElement.textContent = `(已排除: ${excludedCount})`;
+                displayParsedNumbers(list);
             });
             
-            // 绑定数字点击高亮事件
-            selectedItem.querySelectorAll('.number-badge').forEach(badge => {
-                badge.addEventListener('click', function() {
-                    const number = this.getAttribute('data-number');
-                    highlightNumber(number);
-                });
+            // 显示解析后的排除列表
+            displayParsedExcludeNumbers();
+            
+            // 更新比较结果
+            updateAllComparisons();
+        }
+
+        // 应用排除列表到所有对比列表
+        function applyExcludeList() {
+            lists.forEach(list => {
+                list.filteredNumbers = list.numbers.filter(num => 
+                    !excludeNumbers.some(excludeNum => areValuesEqual(num, excludeNum))
+                );
             });
         }
-        
-        // 6. 从已选择列表中移除
-        function removeFromSelectedLists(recordId) {
-            console.log('移除选中列表:', recordId);
-            
-            // 从状态集合中移除
-            selectedRecordIds.delete(recordId);
-            const wasExcluded = excludedListIds.has(recordId);
-            
-            // 从DOM中移除
-            const selectedItem = document.querySelector(`.selected-record-item[data-record-id="${recordId}"]`);
-            if (selectedItem) selectedItem.remove();
-            
-            // 如果是排除项列表，需要更新排除数字库
-            if (wasExcluded) {
-                excludedListIds.delete(recordId);
-                const record = allRecordsMap.get(recordId);
-                // 移除该列表的数字（需检查其他排除项列表是否包含）
-                record.numbers.forEach(num => {
-                    let isStillExcluded = false;
-                    // 检查其他排除列表
-                    excludedListIds.forEach(excludedId => {
-                        const excludedRecord = allRecordsMap.get(excludedId);
-                        if (excludedRecord?.numbers.includes(num)) {
-                            isStillExcluded = true;
-                        }
-                    });
-                    // 检查手动排除
-                    if (!isStillExcluded && manualExcludedNumbers.has(num)) {
-                        isStillExcluded = true;
-                    }
-                    if (!isStillExcluded) {
-                        excludedNumberLibrary.delete(num);
-                        console.log('移除排除数字:', num);
-                    }
-                });
-                // 更新所有列表的数字样式
-                updateAllSelectedListsNumberStyles();
-                updateExcludedLibraryDisplay();
-                updateStatistics();
-            }
-            
-            // 处理空状态
-            const selectedListsContainer = document.getElementById('selected-lists');
-            if (selectedListsContainer.children.length === 0) {
-                selectedListsContainer.innerHTML = `<div class="empty-message text-center p-4 text-muted"><p>请从上方选择要对比的列表（至少选择2个）</p></div>`;
-            }
-            
-            // 更新按钮状态
-            updateCompareBtnState();
-            updateListCompareSelects();
-            updateTwoListCompareBtnState();
-            updateSelectedCount();
-            updateTotalListsCount();
-            updateStatistics();
-            
-            console.log('列表移除完成，当前选中列表数量:', selectedRecordIds.size);
+
+        // 检查两个值是否相等（支持数字和字符串）
+        function areValuesEqual(a, b) {
+            return typeof a === 'number' && typeof b === 'number' 
+                ? a === b 
+                : String(a) === String(b);
         }
-        
-        // 7. 更新所有已选择列表的数字样式（根据排除数字库）
-        function updateAllSelectedListsNumberStyles() {
-            console.log('更新所有列表数字样式');
-            document.querySelectorAll('.selected-record-item').forEach(item => {
-                const recordId = item.getAttribute('data-record-id');
-                // 排除项列表自身的数字不变灰（仅作为排除来源）
-                if (excludedListIds.has(recordId)) return;
-                
-                // 遍历该列表的所有数字标签
-                item.querySelectorAll('[data-number]').forEach(badge => {
-                    const num = badge.getAttribute('data-number');
-                    if (excludedNumberLibrary.has(num)) {
-                        badge.classList.add('excluded-number');
-                        badge.setAttribute('title', '该数字已被排除项列表排除');
-                    } else {
-                        badge.classList.remove('excluded-number');
-                        badge.removeAttribute('title');
-                    }
-                    
-                    // 更新高亮状态
-                    if (highlightedValue === num) {
-                        badge.classList.add('number-highlight');
-                    } else {
-                        badge.classList.remove('number-highlight');
-                    }
-                });
-                
-                // 更新有效/排除数字计数
-                item.querySelector('strong:first-of-type').textContent = getValidNumberCount(recordId);
-                item.querySelector('strong:last-of-type').textContent = getExcludedNumberCount(recordId);
-            });
+
+        // 排序排除列表（仅排序解析结果，不改变输入框原始格式）
+        function sortExcludeList() {
+            if (excludeNumbers.length === 0) return;
+            
+            const sorted = [...excludeNumbers].sort(sortValues);
+            // 保持原始分隔符风格（如果原输入用逗号则用逗号，否则用换行）
+            const separator = excludeInput.value.includes(',') ? ', ' : '\n';
+            excludeInput.value = sorted.join(separator);
+            excludeInput.dispatchEvent(new Event('input'));
         }
-        
-        // 8. 计算列表的有效数字数量（总数字 - 被排除数字）
-        function getValidNumberCount(recordId) {
-            const record = allRecordsMap.get(recordId);
-            if (!record) return 0;
-            const validCount = record.numbers.filter(num => !excludedNumberLibrary.has(num)).length;
-            console.log('列表有效数字数量:', record.name, validCount);
-            return validCount;
+
+        // 排序指定列表（仅排序解析结果，不改变输入框原始格式）
+        function sortList(listIndex) {
+            const list = lists[listIndex];
+            if (list.numbers.length === 0) return;
+            
+            const sorted = [...list.numbers].sort(sortValues);
+            // 保持原始分隔符风格
+            const separator = list.textarea.value.includes(',') ? ', ' : '\n';
+            list.textarea.value = sorted.join(separator);
+            list.textarea.dispatchEvent(new Event('input'));
         }
-        
-        // 9. 计算列表的被排除数字数量
-        function getExcludedNumberCount(recordId) {
-            const record = allRecordsMap.get(recordId);
-            if (!record) return 0;
-            return record.numbers.filter(num => excludedNumberLibrary.has(num)).length;
+
+        // 通用排序函数（数字优先，再按字符串排序）
+        function sortValues(a, b) {
+            if (typeof a === 'number' && typeof b === 'number') return a - b;
+            if (typeof a === 'number') return -1;
+            if (typeof b === 'number') return 1;
+            return String(a).localeCompare(String(b));
         }
-        
-        // 10. 更新排除数字库显示
-        function updateExcludedLibraryDisplay() {
-            const displayContainer = document.getElementById('excluded-library');
-            if (excludedNumberLibrary.size === 0) {
-                displayContainer.innerHTML = '<span class="text-muted">暂无排除项列表，无数字被排除</span>';
-                document.getElementById('excluded-total-count').textContent = '0';
+
+        // 清空指定列表
+        function clearList(listIndex) {
+            lists[listIndex].textarea.value = '';
+            lists[listIndex].textarea.dispatchEvent(new Event('input'));
+        }
+
+        // 删除指定列表
+        function deleteList(listIndex) {
+            if (lists.length <= 2) {
+                alert('至少需要保留 2 个对比列表');
                 return;
             }
             
-            // 显示所有排除数字（去重、排序）
-            const sortedExcludedNumbers = Array.from(excludedNumberLibrary).sort((a, b) => parseInt(a) - parseInt(b));
-            let displayHtml = `<span class="text-danger mr-2">共 ${sortedExcludedNumbers.length} 个排除数字：</span>`;
-            sortedExcludedNumbers.forEach(num => {
-                // 标记手动添加的排除数字
-                const isManual = manualExcludedNumbers.has(num) ? ' (手动)' : '';
-                displayHtml += `<span class="excluded-library-tag" title="点击移除${isManual}">${num}${isManual}</span>`;
-            });
-            displayContainer.innerHTML = displayHtml;
-            document.getElementById('excluded-total-count').textContent = sortedExcludedNumbers.length.toString();
+            const listCard = listsContainer.querySelector(`[data-list-index="${listIndex}"]`);
+            listCard.classList.add('opacity-0', 'transform', 'scale-95');
+            listCard.style.transition = 'all 0.2s ease-out';
             
-            // 绑定排除数字的点击移除事件
-            displayContainer.querySelectorAll('.excluded-library-tag').forEach(tag => {
-                tag.addEventListener('click', function() {
-                    const num = this.textContent.replace(' (手动)', '');
-                    // 如果是手动添加的，直接从手动排除集合中移除
-                    if (manualExcludedNumbers.has(num)) {
-                        manualExcludedNumbers.delete(num);
-                        // 检查是否还有其他排除来源
-                        let isStillExcluded = false;
-                        excludedListIds.forEach(excludedId => {
-                            const excludedRecord = allRecordsMap.get(excludedId);
-                            if (excludedRecord?.numbers.includes(num)) {
-                                isStillExcluded = true;
-                            }
-                        });
-                        if (!isStillExcluded) {
-                            excludedNumberLibrary.delete(num);
-                        }
-                        updateAllSelectedListsNumberStyles();
-                        updateExcludedLibraryDisplay();
-                        updateStatistics();
-                        if (selectedRecordIds.size > 0) {
-                            compareAllLists();
-                        }
-                    }
-                });
-            });
+            setTimeout(() => {
+                listCard.remove();
+                lists.splice(listIndex, 1);
+                updateListIndicesAndLabels();
+                updateListCompareOptions();
+                updateDeleteButtonStates();
+                updateAllComparisons();
+            }, 200);
         }
-        
-        // 11. 更新对比按钮状态
-        function updateCompareBtnState() {
-            // 计算有效参与对比的列表数量（非排除项且有有效数字）
-            let validCompareLists = 0;
-            selectedRecordIds.forEach(recordId => {
-                if (!excludedListIds.has(recordId) && getValidNumberCount(recordId) > 0) {
-                    validCompareLists++;
-                }
-            });
-            
-            const compareBtn = document.getElementById('compare-btn');
-            const refreshBtn = document.getElementById('refresh-comparison');
-            const exportBtn = document.getElementById('export-results');
-            const hintElement = document.getElementById('compare-hint');
-            
-            compareBtn.disabled = validCompareLists < 2;
-            refreshBtn.disabled = validCompareLists < 2;
-            exportBtn.disabled = validCompareLists < 2;
-            
-            console.log('更新对比按钮状态，有效对比列表数:', validCompareLists);
-            
-            // 更新提示信息
-            if (validCompareLists < 2) {
-                if (selectedRecordIds.size < 2) {
-                    hintElement.textContent = '提示：至少选择2个列表才能进行对比';
-                } else {
-                    hintElement.textContent = '提示：需要至少2个非排除项且有有效数字的列表才能进行对比';
-                }
-            } else {
-                hintElement.textContent = `提示：${validCompareLists}个有效列表将参与对比`;
-            }
-        }
-        
-        // 12. 更新两个列表对比按钮状态
-        function updateTwoListCompareBtnState() {
-            const list1Id = document.getElementById('list-compare-first').value;
-            const list2Id = document.getElementById('list-compare-second').value;
-            const compareBtn = document.getElementById('list-compare-btn');
-            
-            // 检查是否选择了不同的列表且都不是排除项
-            const isList1Valid = list1Id && !excludedListIds.has(list1Id) && getValidNumberCount(list1Id) > 0;
-            const isList2Valid = list2Id && !excludedListIds.has(list2Id) && getValidNumberCount(list2Id) > 0;
-            
-            compareBtn.disabled = !(list1Id && list2Id && list1Id !== list2Id && isList1Valid && isList2Valid);
-            console.log('更新两个列表对比按钮状态，是否可用:', !compareBtn.disabled);
-        }
-        
-        // 13. 更新两个列表对比的选择框选项
-        function updateListCompareSelects() {
-            const select1 = document.getElementById('list-compare-first');
-            const select2 = document.getElementById('list-compare-second');
-            const current1 = select1.value;
-            const current2 = select2.value;
-            
-            // 清空选项
-            select1.innerHTML = '<option value="">请选择第一个列表</option>';
-            select2.innerHTML = '<option value="">请选择第二个列表</option>';
-            
-            // 添加有效对比列表（非排除项且有有效数字）
-            selectedRecordIds.forEach(recordId => {
-                if (!excludedListIds.has(recordId) && getValidNumberCount(recordId) > 0) {
-                    const record = allRecordsMap.get(recordId);
-                    if (record) {
-                        select1.innerHTML += `<option value="${recordId}" ${current1 === recordId ? 'selected' : ''}>${record.name}</option>`;
-                        select2.innerHTML += `<option value="${recordId}" ${current2 === recordId ? 'selected' : ''}>${record.name}</option>`;
-                    }
-                }
-            });
-            
-            updateTwoListCompareBtnState();
-            console.log('更新列表对比选择框选项');
-        }
-        
-        // 14. 对比所有已选择列表（排除数字库中的数字）
-        function compareAllLists() {
-            console.log('开始对比所有列表');
-            // 收集所有非排除项列表的有效数字
-            const validNumbersByList = new Map();
-            selectedRecordIds.forEach(recordId => {
-                // 排除项列表不参与对比计算
-                if (excludedListIds.has(recordId)) return;
-                
-                const record = allRecordsMap.get(recordId);
-                const validNumbers = record.numbers.filter(num => !excludedNumberLibrary.has(num));
-                if (validNumbers.length > 0) {
-                    validNumbersByList.set(recordId, {
-                        name: record.name,
-                        numbers: validNumbers,
-                        numberSet: new Set(validNumbers)
-                    });
-                    console.log('参与对比的列表:', record.name, '有效数字:', validNumbers);
-                }
-            });
-            
-            if (validNumbersByList.size === 0) {
-                console.log('无有效列表参与对比');
-                document.getElementById('common-numbers-result').innerHTML = '<p class="text-center text-muted">无有效列表参与对比（所有列表均为排除项或无有效数字）</p>';
-                document.getElementById('unique-numbers-result').innerHTML = '<p class="text-center text-muted">无有效列表参与对比（所有列表均为排除项或无有效数字）</p>';
-                document.getElementById('all-common-count').textContent = '0';
-                return;
-            }
-            
-            console.log('参与对比的有效列表数:', validNumbersByList.size);
-            // 计算所有列表的共有数字
-            calculateCommonNumbers(validNumbersByList);
-            // 计算各列表的独有数字
-            calculateUniqueNumbers(validNumbersByList);
-            // 更新统计信息
-            updateStatistics(validNumbersByList);
-            console.log('对比完成');
-        }
-        
-        // 15. 计算所有列表的共有数字（核心修复：确保结果正确渲染）
-        function calculateCommonNumbers(validNumbersByList) {
-            const resultContainer = document.getElementById('common-numbers-result');
-            const listEntries = Array.from(validNumbersByList.entries());
-            
-            console.log('计算所有列表共有数字，参与列表数:', listEntries.length);
-            
-            // 取第一个列表的有效数字作为初始交集
-            let commonNumbers = [...listEntries[0][1].numberSet];
-            // 与其他列表的有效数字求交集
-            for (let i = 1; i < listEntries.length; i++) {
-                commonNumbers = commonNumbers.filter(num => listEntries[i][1].numberSet.has(num));
-            }
-            commonNumbers.sort((a, b) => parseInt(a) - parseInt(b));
-            
-            console.log('共有数字计算结果:', commonNumbers);
-            
-            // 更新计数
-            document.getElementById('all-common-count').textContent = commonNumbers.length.toString();
-            
-            // 显示结果（修复：使用明确的容器结构）
-            if (commonNumbers.length === 0) {
-                resultContainer.innerHTML = '<p class="text-center text-muted">所有列表无共有有效数字</p>';
-            } else {
-                let numbersHtml = '<div class="result-number-container">';
-                commonNumbers.forEach(num => {
-                    numbersHtml += `
-                        <span class="badge badge-success p-2 number-badge" 
-                              style="font-size: 0.9rem; cursor: pointer; color: #000 !important;"
-                              data-number="${num}"
-                              onclick="highlightNumber('${num}')">
-                            ${num}
-                        </span>
+
+        // 更新列表索引和标签
+        function updateListIndicesAndLabels() {
+            lists.forEach((list, index) => {
+                //list.label = LIST_LABELS[index];
+                const listCard = list.textarea.closest('.list-card');
+                if (listCard) {
+                    listCard.dataset.listIndex = index;
+                    const titleElement = listCard.querySelector('h2');
+                    titleElement.innerHTML = `
+                        <span class="inline-block w-3 h-3 rounded-full" style="background-color: ${list.color}"></span>
+                        对比列表 ${list.label}
                     `;
-                });
-                numbersHtml += '</div>';
-                
-                resultContainer.innerHTML = `
-                    <div class="text-center mb-2">
-                        <span class="badge badge-info text-lg px-3 py-1">共有有效数字数量: ${commonNumbers.length}</span>
-                    </div>
-                    ${numbersHtml}
-                `;
-            }
+                    
+                    // 更新解析数字标题
+                    const parsedTitle = listCard.querySelector('.parsed-numbers-title');
+                    parsedTitle.innerHTML = `
+                        <i class="fa fa-check-circle mr-1" style="color: ${list.color}"></i>解析后的数值（已排除不需要的值）：
+                    `;
+                    
+                    // 更新解析容器的索引
+                    list.parsedContainer.dataset.listIndex = index;
+                }
+            });
         }
-        
-        // 16. 计算各列表的独有数字（核心修复：确保结果正确渲染）
-        function calculateUniqueNumbers(validNumbersByList) {
-            const resultContainer = document.getElementById('unique-numbers-result');
-            const listEntries = Array.from(validNumbersByList.entries());
+
+        // 更新删除按钮状态
+        function updateDeleteButtonStates() {
+            document.querySelectorAll('.delete-list-btn').forEach(btn => {
+                if (lists.length <= 2) {
+                    btn.classList.add('opacity-0', 'cursor-not-allowed');
+                } else {
+                    btn.classList.remove('opacity-0', 'cursor-not-allowed');
+                }
+            });
+        }
+
+        // 更新列表比较选项
+        function updateListCompareOptions() {
+            const currentValue = listCompareSelect.value;
+            listCompareSelect.innerHTML = '';
             
-            console.log('计算各列表独有数字，参与列表数:', listEntries.length);
+            for (let i = 0; i < lists.length; i++) {
+                for (let j = i + 1; j < lists.length; j++) {
+                    const option = document.createElement('option');
+                    option.value = `${i}-${j}`;
+                    option.textContent = `${lists[i].label} vs ${lists[j].label}`;
+                    listCompareSelect.appendChild(option);
+                }
+            }
             
-            let resultHtml = '<div class="row">';
-            listEntries.forEach(([recordId, { name, numbers, numberSet }], index) => {
-                // 独有数字：仅在当前列表出现，其他所有列表都没有
-                const uniqueNumbers = numbers.filter(num => {
-                    let isUnique = true;
-                    listEntries.forEach(([otherId, { numberSet: otherSet }]) => {
-                        if (otherId !== recordId && otherSet.has(num)) {
-                            isUnique = false;
-                        }
-                    });
-                    return isUnique;
-                }).sort((a, b) => parseInt(a) - parseInt(b));
+            if (currentValue && listCompareSelect.querySelector(`option[value="${currentValue}"]`)) {
+                listCompareSelect.value = currentValue;
+            } else if (listCompareSelect.options.length > 0) {
+                listCompareSelect.value = listCompareSelect.options[0].value;
+            }
+            
+            handleListCompareChange();
+        }
+
+        // 创建可点击的数字元素（改为行内间隔显示）
+        function createClickableNumbers(numbers, baseClass = '', color = '') {
+            if (numbers.length === 0) {
+                return `<p class="text-secondary text-sm italic text-center py-2">暂无数据</p>`;
+            }
+            
+            return numbers.map(num => {
+                const numClass = color ? `style="color: ${color}"` : '';
+                const isHighlighted = highlightedValue !== null && areValuesEqual(num, highlightedValue);
+                const highlightClass = isHighlighted ? 'number-highlight' : '';
                 
-                console.log('列表', name, '独有数字:', uniqueNumbers);
-                
-                // 单个列表的独有数字HTML
-                resultHtml += `
-                    <div class="col-md-6 mb-4 animate-fadeIn" style="animation-delay: ${index * 100}ms">
-                        <div class="card result-card">
-                            <div class="card-header bg-primary text-white">
-                                <strong>${name}</strong>
-                            </div>
-                            <div class="card-body">
-                                <div class="text-center mb-2">
-                                    <span class="badge badge-secondary">独有有效数字数量: ${uniqueNumbers.length}</span>
-                                </div>
-                                <div class="result-number-container">
-                                    ${uniqueNumbers.length > 0 
-                                        ? uniqueNumbers.map(num => `
-                                            <span class="badge badge-warning p-2 number-badge" 
-                                                  style="font-size: 0.9rem; cursor: pointer;"
-                                                  data-number="${num}"
-                                                  onclick="highlightNumber('${num}')">
-                                                ${num}
-                                            </span>`).join('')
-                                        : '<p class="text-muted">无独有有效数字</p>'}
-                                </div>
-                            </div>
+                return `<span class="number-item ${baseClass} ${highlightClass}" 
+                              data-value="${String(num).replace(/"/g, '&quot;')}"
+                              ${numClass}>${num}</span>`;
+            }).join('.');
+        }
+
+        // 处理数字点击事件（高亮）
+        function handleNumberClick(event) {
+            const target = event.target.closest('.number-item, .parsed-number-item');
+            if (!target) return;
+            
+            const value = target.dataset.value;
+            const parsedValue = isNaN(parseFloat(value)) ? value : parseFloat(value);
+            
+            highlightedValue = highlightedValue !== null && areValuesEqual(parsedValue, highlightedValue)
+                ? null 
+                : parsedValue;
+            
+            // 更新所有解析数字的高亮状态
+            lists.forEach(list => displayParsedNumbers(list));
+            displayParsedExcludeNumbers();
+            
+            updateAllComparisons();
+        }
+
+        // 清除所有高亮
+        function clearAllHighlights() {
+            highlightedValue = null;
+            
+            // 更新所有解析数字的高亮状态
+            lists.forEach(list => displayParsedNumbers(list));
+            displayParsedExcludeNumbers();
+            
+            updateAllComparisons();
+        }
+
+        // 处理列表比较变化
+        function handleListCompareChange() {
+            if (!listCompareSelect.value) return;
+            
+            const [index1, index2] = listCompareSelect.value.split('-').map(Number);
+            const list1 = lists[index1];
+            const list2 = lists[index2];
+            
+            const only1 = list1.filteredNumbers.filter(num => 
+                !list2.filteredNumbers.some(n => areValuesEqual(n, num))
+            );
+            const only2 = list2.filteredNumbers.filter(num => 
+                !list1.filteredNumbers.some(n => areValuesEqual(n, num))
+            );
+            const common = list1.filteredNumbers.filter(num => 
+                list2.filteredNumbers.some(n => areValuesEqual(n, num))
+            );
+            
+            // 排序
+            only1.sort(sortValues);
+            only2.sort(sortValues);
+            common.sort(sortValues);
+            
+            // 生成HTML
+            const only1Html = createClickableNumbers(only1, '', list1.color);
+            const commonHtml = createClickableNumbers(common, 'text-success');
+            const only2Html = createClickableNumbers(only2, '', list2.color);
+            
+            listCompareResult.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <h3 class="text-md font-medium flex items-center mb-2" style="color: ${list1.color}">
+                            <span class="inline-block w-2 h-2 rounded-full mr-2" style="background-color: ${list1.color}"></span>
+                            ${list1.label}有${list2.label}没有
+                            <span class="ml-2 bg-gray-100 text-xs px-2 py-0.5 rounded-full">${only1.length}</span>
+                        </h3>
+                        <div class="max-h-32 overflow-y-auto scrollbar-thin p-2 border border-gray-100 rounded-lg bg-gray-50 text-sm number-container">
+                            ${only1Html}
                         </div>
                     </div>
-                `;
-            });
-            resultHtml += '</div>';
-            
-            resultContainer.innerHTML = resultHtml;
-            console.log('各列表独有数字渲染完成');
-        }
-        
-        // 17. 对比两个指定列表（核心修复：确保结果正确渲染）
-        function compareTwoSpecificLists(list1Id, list2Id) {
-            const resultContainer = document.getElementById('list-compare-result');
-            const list1 = allRecordsMap.get(list1Id);
-            const list2 = allRecordsMap.get(list2Id);
-            
-            console.log('对比两个列表:', list1.name, 'VS', list2.name);
-            
-            // 过滤有效数字（排除数字库中的数字）
-            const list1Valid = list1.numbers.filter(num => !excludedNumberLibrary.has(num));
-            const list2Valid = list2.numbers.filter(num => !excludedNumberLibrary.has(num));
-            
-            console.log('列表1有效数字:', list1Valid);
-            console.log('列表2有效数字:', list2Valid);
-            
-            const list1Set = new Set(list1Valid);
-            const list2Set = new Set(list2Valid);
-            
-            // 计算各类数字
-            const commonNumbers = [...list1Set].filter(num => list2Set.has(num)).sort((a, b) => parseInt(a) - parseInt(b));
-            const onlyInList1 = [...list1Set].filter(num => !list2Set.has(num)).sort((a, b) => parseInt(a) - parseInt(b));
-            const onlyInList2 = [...list2Set].filter(num => !list1Set.has(num)).sort((a, b) => parseInt(a) - parseInt(b));
-            
-            console.log('共有数字:', commonNumbers);
-            console.log('仅列表1有:', onlyInList1);
-            console.log('仅列表2有:', onlyInList2);
-            
-            // 显示对比结果（修复：使用统一的数字容器样式）
-            resultContainer.innerHTML = `
-                <div class="mb-4">
-                    <h5 class="text-center mb-2">共有有效数字 (${commonNumbers.length})</h5>
-                    <div class="result-number-container">
-                        ${commonNumbers.length > 0 
-                            ? commonNumbers.map(num => `
-                                <span class="badge badge-success p-2 number-badge"
-                                      style="cursor: pointer; color: #000 !important;"
-                                      data-number="${num}"
-                                      onclick="highlightNumber('${num}')">
-                                    ${num}
-                                </span>`).join('')
-                            : '<p class="text-muted">无共有有效数字</p>'}
+                    <div>
+                        <h3 class="text-md font-medium text-success flex items-center mb-2">
+                            <i class="fa fa-check-circle mr-2"></i>相同数字
+                            <span class="ml-2 bg-gray-100 text-xs px-2 py-0.5 rounded-full">${common.length}</span>
+                        </h3>
+                        <div class="max-h-32 overflow-y-auto scrollbar-thin p-2 border border-gray-100 rounded-lg bg-gray-50 text-sm number-container">
+                            ${commonHtml}
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-md font-medium flex items-center mb-2" style="color: ${list2.color}">
+                            <span class="inline-block w-2 h-2 rounded-full mr-2" style="background-color: ${list2.color}"></span>
+                            ${list2.label}有${list1.label}没有
+                            <span class="ml-2 bg-gray-100 text-xs px-2 py-0.5 rounded-full">${only2.length}</span>
+                        </h3>
+                        <div class="max-h-32 overflow-y-auto scrollbar-thin p-2 border border-gray-100 rounded-lg bg-gray-50 text-sm number-container">
+                            ${only2Html}
+                        </div>
                     </div>
                 </div>
-                <div class="mb-4">
-                    <h5 class="text-center mb-2">仅在 ${list1.name} 中出现 (${onlyInList1.length})</h5>
-                    <div class="result-number-container">
-                        ${onlyInList1.length > 0 
-                            ? onlyInList1.map(num => `
-                                <span class="badge badge-primary p-2 number-badge"
-                                      style="cursor: pointer;"
-                                      data-number="${num}"
-                                      onclick="highlightNumber('${num}')">
-                                    ${num}
-                                </span>`).join('')
-                            : '<p class="text-muted">无独有有效数字</p>'}
-                    </div>
-                </div>
-                <div>
-                    <h5 class="text-center mb-2">仅在 ${list2.name} 中出现 (${onlyInList2.length})</h5>
-                    <div class="result-number-container">
-                        ${onlyInList2.length > 0 
-                            ? onlyInList2.map(num => `
-                                <span class="badge badge-secondary p-2 number-badge"
-                                      style="cursor: pointer;"
-                                      data-number="${num}"
-                                      onclick="highlightNumber('${num}')">
-                                    ${num}
-                                </span>`).join('')
-                            : '<p class="text-muted">无独有有效数字</p>'}
-                    </div>
+                <div class="mt-4 text-xs text-secondary text-center">
+                    提示: 已自动排除排除列表中的数值
                 </div>
             `;
             
-            console.log('两个列表对比结果渲染完成');
-        }
-
-        // 18. 显示加载状态
-        function showLoadingState(button) {
-            const originalText = button.innerHTML;
-            button.innerHTML = '<span class="loading-indicator mr-2"></span>处理中...';
-            button.disabled = true;
-            button.dataset.originalText = originalText;
-        }
-
-        // 19. 隐藏加载状态
-        function hideLoadingState(button) {
-            const originalText = button.dataset.originalText;
-            if (originalText) {
-                button.innerHTML = originalText;
-                delete button.dataset.originalText;
-            }
-            // 恢复按钮状态（根据实际情况）
-            button.disabled = false;
-        }
-
-        // 20. 更新列表计数
-        function updateAvailableCount() {
-            const count = document.querySelectorAll('.available-record-item').length;
-            document.getElementById('available-count').textContent = `${count} 个列表`;
-            console.log('可用列表数量:', count);
-        }
-
-        function updateSelectedCount() {
-            document.getElementById('selected-count').textContent = `${selectedRecordIds.size} 个列表`;
-        }
-        
-        function updateTotalListsCount() {
-            const count = selectedRecordIds.size;
-            document.getElementById('total-lists').textContent = count.toString();
-            console.log('选中列表总数:', count);
-        }
-
-        // 21. 导出对比结果为CSV
-        function exportResults() {
-            // 收集有效列表数据
-            const validLists = [];
-            selectedRecordIds.forEach(recordId => {
-                if (!excludedListIds.has(recordId)) {
-                    const record = allRecordsMap.get(recordId);
-                    const validNumbers = record.numbers.filter(num => !excludedNumberLibrary.has(num));
-                    if (validNumbers.length > 0) {
-                        validLists.push({
-                            id: recordId,
-                            name: record.name,
-                            numbers: validNumbers
-                        });
-                    }
-                }
+            // 绑定点击事件
+            document.querySelectorAll('.number-container').forEach(container => {
+                container.addEventListener('click', handleNumberClick);
             });
+        }
 
-            if (validLists.length < 2) {
-                alert('请至少选择2个有效列表进行对比后再导出');
+        // 更新所有列表共有的数字
+        function updateAllCommonNumbers() {
+            if (lists.length < 2) {
+                allCommonNumbers.innerHTML = `<p class="text-secondary text-sm italic text-center py-4">请添加至少两个对比列表</p>`;
+                allCommonCount.textContent = '0';
                 return;
             }
-
-            // 构建CSV内容
-            let csvContent = "类型,列表名称,数字\n";
             
-            // 添加所有列表共有数字
-            const commonNumbers = getCommonNumbersAcrossLists(validLists);
-            csvContent += `共有数字,,${commonNumbers.join(',')}\n`;
+            let commonArray = [...lists[0].filteredNumbers];
+            for (let i = 1; i < lists.length; i++) {
+                commonArray = commonArray.filter(num => 
+                    lists[i].filteredNumbers.some(n => areValuesEqual(n, num))
+                );
+                if (commonArray.length === 0) break;
+            }
+            
+            // 总排除数量
+            let totalExcluded = 0;
+            lists.forEach(list => totalExcluded += list.numbers.length - list.filteredNumbers.length);
+            excludedTotalCount.textContent = totalExcluded;
+            
+            allCommonCount.textContent = commonArray.length;
+            
+            if (commonArray.length === 0) {
+                allCommonNumbers.innerHTML = `<p class="text-secondary text-sm italic text-center py-4">没有找到所有列表共有的数字</p>`;
+            } else {
+                commonArray.sort(sortValues);
+                const numbersHtml = createClickableNumbers(commonArray, 'text-success');
+                
+                allCommonNumbers.innerHTML = `
+                    <div class="py-2 animate-fadeIn number-container">
+                        ${numbersHtml}
+                    </div>
+                    ${excludeNumbers.length > 0 ? `
+                        <div class="mt-2 text-xs text-exclude text-center">
+                            <i class="fa fa-filter mr-1"></i>已排除 ${excludeNumbers.length} 个数值
+                        </div>
+                    ` : ''}
+                `;
+                
+                allCommonNumbers.querySelector('.number-container').addEventListener('click', handleNumberClick);
+            }
+        }
 
-            // 添加各列表独有数字
-            validLists.forEach(list => {
-                const uniqueNumbers = getUniqueNumbersForList(list, validLists);
-                csvContent += `独有数字,${list.name},${uniqueNumbers.join(',')}\n`;
+        // 更新每个列表独有的数字
+        function updateUniquePerList() {
+            uniquePerList.innerHTML = '';
+            
+            if (lists.length < 2) {
+                uniquePerList.innerHTML = `<p class="text-secondary text-sm italic text-center py-4">请添加至少两个对比列表</p>`;
+                return;
+            }
+            
+            lists.forEach((list, index) => {
+                const otherListsNumbers = [];
+                lists.forEach((otherList, otherIndex) => {
+                    if (otherIndex !== index) otherListsNumbers.push(...otherList.filteredNumbers);
+                });
+                
+                const uniqueNumbers = list.filteredNumbers.filter(num => 
+                    !otherListsNumbers.some(n => areValuesEqual(n, num))
+                );
+                uniqueNumbers.sort(sortValues);
+                
+                const numbersHtml = createClickableNumbers(uniqueNumbers, '', list.color);
+                
+                const listItem = document.createElement('div');
+                listItem.className = 'p-3 border border-gray-100 rounded-lg bg-gray-50';
+                listItem.innerHTML = `
+                    <h3 class="text-md font-medium mb-2 flex items-center" style="color: ${list.color}">
+                        <span class="inline-block w-2 h-2 rounded-full mr-2" style="background-color: ${list.color}"></span>
+                        对比列表 ${list.label} 独有
+                        <span class="ml-2 bg-gray-100 text-xs px-2 py-0.5 rounded-full">${uniqueNumbers.length}</span>
+                    </h3>
+                    <div class="text-sm number-container">
+                        ${numbersHtml}
+                    </div>
+                `;
+                
+                listItem.querySelector('.number-container').addEventListener('click', handleNumberClick);
+                uniquePerList.appendChild(listItem);
             });
+        }
 
+        // 更新统计信息
+        function updateStatistics() {
+            totalLists.textContent = lists.length;
+            excludeStatsCount.textContent = excludeNumbers.length;
+            
+            let totalFiltered = 0;
+            lists.forEach(list => totalFiltered += list.filteredNumbers.length);
+            filteredTotalNumbers.textContent = totalFiltered;
+            
+            const uniqueSet = new Set();
+            lists.forEach(list => list.filteredNumbers.forEach(num => uniqueSet.add(String(num))));
+            filteredUniqueNumbers.textContent = uniqueSet.size;
+        }
+
+        // 更新所有比较结果
+        function updateAllComparisons() {
+            updateAllCommonNumbers();
+            updateUniquePerList();
+            handleListCompareChange();
+            updateStatistics();
+        }
+
+        // 加载示例数据
+        function loadSampleData() {
+            lists.forEach(list => list.textarea.value = '');
+            while (lists.length > sampleData.lists.length) deleteList(lists.length - 1);
+            while (lists.length < sampleData.lists.length) addNewList();
+            
+            excludeInput.value = sampleData.exclude;
+            sampleData.lists.forEach((data, index) => {
+                if (lists[index]) {
+                    lists[index].textarea.value = data; // 保留示例数据的原始格式
+                    lists[index].textarea.dispatchEvent(new Event('input'));
+                }
+            });
+            
+            excludeInput.dispatchEvent(new Event('input'));
+            updateAllComparisons();
+        }
+
+        // 导出结果到CSV
+        function exportResultsToCSV() {
+            // 简单实现：收集所有列表数据
+            let csvContent = "类型,列表,数值,状态\n";
+            
+            // 添加排除列表
+            excludeNumbers.forEach(num => {
+                csvContent += `排除列表,,${num},排除\n`;
+            });
+            
+            // 添加各列表数据
+            lists.forEach((list, index) => {
+                list.numbers.forEach(num => {
+                    const status = excludeNumbers.some(excludeNum => areValuesEqual(num, excludeNum)) 
+                        ? "排除" 
+                        : "保留";
+                    csvContent += `对比列表${list.label},${index + 1},${num},${status}\n`;
+                });
+            });
+            
             // 生成CSV文件并下载
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.setAttribute('href', url);
-            a.setAttribute('download', `数字对比结果_${new Date().toLocaleDateString()}.csv`);
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            
-            console.log('导出对比结果完成');
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', '数字对比结果.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
-        // 辅助函数：获取所有列表的共有数字
-        function getCommonNumbersAcrossLists(lists) {
-            if (lists.length === 0) return [];
-            let common = new Set(lists[0].numbers);
-            for (let i = 1; i < lists.length; i++) {
-                const currentSet = new Set(lists[i].numbers);
-                common = new Set([...common].filter(x => currentSet.has(x)));
-            }
-            return Array.from(common).sort((a, b) => parseInt(a) - parseInt(b));
-        }
-
-        // 辅助函数：获取指定列表的独有数字
-        function getUniqueNumbersForList(targetList, allLists) {
-            const targetSet = new Set(targetList.numbers);
-            allLists.forEach(list => {
-                if (list.id !== targetList.id) {
-                    const otherSet = new Set(list.numbers);
-                    targetSet.forEach(num => {
-                        if (otherSet.has(num)) {
-                            targetSet.delete(num);
-                        }
-                    });
-                }
-            });
-            return Array.from(targetSet).sort((a, b) => parseInt(a) - parseInt(b));
-        }
-        
-        // 22. 高亮显示指定数字
-        function highlightNumber(number) {
-            console.log('高亮数字:', number);
-            // 如果点击的是已高亮的数字，则取消高亮
-            if (highlightedValue === number) {
-                clearAllHighlights();
-                return;
-            }
-            
-            highlightedValue = number;
-            
-            // 在所有已选择列表中高亮该数字
-            document.querySelectorAll('.number-badge').forEach(badge => {
-                if (badge.getAttribute('data-number') === number) {
-                    badge.classList.add('number-highlight');
-                } else {
-                    badge.classList.remove('number-highlight');
-                }
-            });
-            
-            // 在结果区域高亮该数字
-            document.querySelectorAll('#common-numbers-result .number-badge, #unique-numbers-result .number-badge, #list-compare-result .number-badge').forEach(badge => {
-                if (badge.getAttribute('data-number') === number) {
-                    badge.classList.add('number-highlight');
-                } else {
-                    badge.classList.remove('number-highlight');
-                }
-            });
-        }
-        
-        // 23. 清除所有高亮
-        function clearAllHighlights() {
-            console.log('清除所有高亮');
-            highlightedValue = null;
-            document.querySelectorAll('.number-highlight').forEach(el => {
-                el.classList.remove('number-highlight');
-            });
-        }
-        
-        // 24. 更新统计信息
-        function updateStatistics(validNumbersByList = null) {
-            // 更新排除数值数量
-            const excludeCount = excludedNumberLibrary.size;
-            document.getElementById('exclude-stats-count').textContent = excludeCount.toString();
-            console.log('排除数字总数:', excludeCount);
-            
-            // 如果没有提供validNumbersByList，则尝试获取
-            if (!validNumbersByList) {
-                validNumbersByList = new Map();
-                selectedRecordIds.forEach(recordId => {
-                    if (!excludedListIds.has(recordId)) {
-                        const record = allRecordsMap.get(recordId);
-                        const validNumbers = record.numbers.filter(num => !excludedNumberLibrary.has(num));
-                        if (validNumbers.length > 0) {
-                            validNumbersByList.set(recordId, {
-                                name: record.name,
-                                numbers: validNumbers,
-                                numberSet: new Set(validNumbers)
-                            });
-                        }
-                    }
-                });
-            }
-            
-            // 计算过滤后总数字
-            let totalFilteredNumbers = 0;
-            // 计算过滤后唯一数字
-            const uniqueFilteredNumbers = new Set();
-            
-            validNumbersByList.forEach(({ numbers }) => {
-                totalFilteredNumbers += numbers.length;
-                numbers.forEach(num => uniqueFilteredNumbers.add(num));
-            });
-            
-            document.getElementById('filtered-total-numbers').textContent = totalFilteredNumbers.toString();
-            document.getElementById('filtered-unique-numbers').textContent = uniqueFilteredNumbers.size.toString();
-            
-            console.log('统计信息更新：过滤后总数字=', totalFilteredNumbers, '唯一数字=', uniqueFilteredNumbers.size);
-        }
-        
-        // 全局函数，用于HTML中的onclick调用
-        window.highlightNumber = highlightNumber;
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', init);
     </script>
+</body>
+</html>
+
 {% endblock %}

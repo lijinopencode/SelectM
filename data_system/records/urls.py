@@ -26,4 +26,9 @@ urlpatterns = [
     # 数字对比工具
     # 在urlpatterns列表末尾添加
     path("number-comparison/", views.NumberComparisonView.as_view(), name="number_comparison"),
+
+    # API接口
+    path("api/preset-data-groups/", views.get_preset_data_groups, name="api_preset_data_groups"),
+    # 添加新的API路由
+    path('api/records-by-date/', views.get_records_by_date, name='get_records_by_date'),
 ]

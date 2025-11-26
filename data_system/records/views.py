@@ -3,10 +3,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 from django.contrib import messages
+from django.http import JsonResponse
+from django.db.models import Q
 # 添加日志模块导入
 import logging
 # 在文件顶部添加datetime导入（如果还没有）
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from .models import Category, DataRecord, DailyNumber
 from .forms import CategoryForm, DataRecordForm, DailyNumberForm
 # 导入生肖相关函数 - 正确放在顶部
@@ -334,4 +336,143 @@ class NumberComparisonView(ListView):
         except DailyNumber.DoesNotExist:
             context['daily_number'] = None
         
+        # 添加today变量到上下文
+        context['today'] = date.today().strftime('%Y-%m-%d')
+
         return context
+
+
+# API接口：获取指定日期的预设数据组
+def get_preset_data_groups(request):
+    """
+    API接口：根据日期获取预设数据组
+    URL: /api/preset-data-groups/?date=2025-11-26
+    """
+    # 获取日期参数
+    date_str = request.GET.get('date')
+
+    if not date_str:
+        return JsonResponse({'error': '缺少date参数'}, status=400)
+
+    try:
+        # 解析日期
+        query_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'error': '日期格式错误，应为YYYY-MM-DD'}, status=400)
+
+    # 获取该日期的所有数据记录
+    records = DataRecord.objects.filter(start_date=query_date).select_related('category')
+
+    # 构建返回数据
+    data_groups = []
+    group_id = 1
+
+    # 为每个记录创建一个"比较"类型的数据组
+    for record in records:
+        if record.data_value:
+            data_groups.append({
+                'id': group_id,
+                'name': f'{record.category.name if record.category else "未分类"} - {record.description or "数据记录"}',
+                'type': 'compare',
+                'data': record.data_value,
+                'date': date_str
+            })
+            group_id += 1
+
+    # 可以添加一些默认的排除数据组
+    # 例如：基于历史数据的常见排除值
+    common_excludes = get_common_excludes_for_date(query_date)
+    if common_excludes:
+        data_groups.insert(0, {
+            'id': group_id,
+            'name': f'{date_str} - 常见排除值',
+            'type': 'exclude',
+            'data': common_excludes,
+            'date': date_str
+        })
+
+    return JsonResponse(data_groups, safe=False)
+
+
+def get_common_excludes_for_date(query_date):
+    """
+    获取指定日期的常见排除值
+    可以基于历史数据或规则生成
+    """
+    # 这里可以实现更复杂的逻辑
+    # 例如：获取前几天的开奖号码作为排除值
+    try:
+        # 获取最近7天的开奖号码
+        recent_numbers = DailyNumber.objects.filter(
+            date__lt=query_date,
+            date__gte=query_date - timedelta(days=7)
+        ).order_by('-date')[:7]
+
+        if recent_numbers:
+            exclude_numbers = []
+            for dn in recent_numbers:
+                if dn.opened_number:
+                    exclude_numbers.append(str(dn.opened_number))
+
+            if exclude_numbers:
+                return ', '.join(exclude_numbers)
+    except Exception as e:
+        logger.error(f"获取常见排除值失败: {e}")
+
+    return ''
+
+
+# 在文件末尾添加新的API端点
+def get_records_by_date(request):
+    """
+    API接口：根据选择的日期获取所有在start_date和end_date范围内的DataRecord数据
+    URL: /api/records-by-date/?date=2025-11-26
+    """
+    # 获取日期参数
+    date_str = request.GET.get('date')
+
+    if not date_str:
+        return JsonResponse({'error': '缺少date参数'}, status=400)
+
+    try:
+        # 解析日期
+        query_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'error': '日期格式错误，应为YYYY-MM-DD'}, status=400)
+
+    # 查询在start_date和end_date范围内的所有记录
+    # 条件：记录的开始日期 <= 查询日期 <= 记录的结束日期（如果结束日期存在）
+    # 或者记录的开始日期 <= 查询日期且结束日期为空（表示持续有效）
+    records = DataRecord.objects.filter(
+        Q(start_date__lte=query_date) & 
+        (Q(end_date__gte=query_date) | Q(end_date__isnull=True))
+    ).select_related('category').order_by('category__name', 'data_name')
+
+    # 构建返回数据
+    result_data = []
+    for record in records:
+        # 解析数字
+        numbers = []
+        if record.data_value:
+            try:
+                from .utils import parse_number_group
+                numbers = parse_number_group(record.data_value)
+            except Exception:
+                pass
+        
+        result_data.append({
+            'id': record.id,
+            'category': record.category.name if record.category else '未分类',
+            'data_name': record.data_name,
+            'start_date': record.start_date.strftime('%Y-%m-%d'),
+            'end_date': record.end_date.strftime('%Y-%m-%d') if record.end_date else None,
+            'data_value': record.data_value,
+            'numbers': numbers,
+            'is_excluded_group': record.is_excluded_group
+        })
+
+    return JsonResponse({
+        'date': date_str,
+        'records': result_data,
+        'total': len(result_data)
+    })
