@@ -5,6 +5,12 @@ urlpatterns = [
     # 首页
     path("", views.index, name="index"),
 
+    # 网站管理 - 添加新的URL路由
+    path("websites/", views.WebsiteListView.as_view(), name="website_list"),
+    path("websites/add/", views.WebsiteCreateView.as_view(), name="website_add"),
+    path("websites/<int:pk>/edit/", views.WebsiteUpdateView.as_view(), name="website_edit"),
+    path("websites/<int:pk>/delete/", views.WebsiteDeleteView.as_view(), name="website_delete"),
+
     # 类别管理
     path("categories/", views.CategoryListView.as_view(), name="category_list"),
     path("categories/add/", views.CategoryCreateView.as_view(), name="category_add"),

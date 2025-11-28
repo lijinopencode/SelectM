@@ -9,11 +9,12 @@ from django.db.models import Q
 import logging
 # 在文件顶部添加datetime导入（如果还没有）
 from datetime import date, datetime, timedelta
-from .models import Category, DataRecord, DailyNumber
-from .forms import CategoryForm, DataRecordForm, DailyNumberForm
+from .models import Category, DataRecord, DailyNumber, Website  # 添加Website导入
+from .forms import CategoryForm, DataRecordForm, DailyNumberForm, WebsiteForm  # 添加WebsiteForm导入
 # 导入生肖相关函数 - 正确放在顶部
 from .utils import get_zodiac_by_number, get_numbers_by_zodiac, CHINESE_ZODIAC_MAP, get_numbers_with_zodiac
-
+# 在文件顶部的导入部分添加
+from .models import Website
 # 配置日志记录器
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,10 @@ class CategoryListView(ListView):
     model = Category
     template_name = "records/category_list.html"
     context_object_name = "categories"
+    
+    def get_queryset(self):
+        # 按网站ID和类别名称排序，使同一个来源网站的类别显示在一起
+        return Category.objects.all().order_by('website_id', 'name')
     
     def dispatch(self, request, *args, **kwargs):
         # 记录访问日志
@@ -88,21 +93,29 @@ class DataRecordListView(ListView):
     def dispatch(self, request, *args, **kwargs):
         # 记录访问日志，包含筛选参数信息
         category_id = request.GET.get("category_id")
+        website_id = request.GET.get("website_id")  # 新增：获取网站ID筛选参数
         start_date = request.GET.get("start_date")
         end_date = request.GET.get("end_date")
         logger.info(f"访问数据记录列表界面 - 视图类: DataRecordListView, 模板: {self.template_name}, "
-                   f"筛选参数: category_id={category_id}, start_date={start_date}, end_date={end_date}")
+                   f"筛选参数: category_id={category_id}, website_id={website_id}, "
+                   f"start_date={start_date}, end_date={end_date}")  # 更新日志格式
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
         """带筛选条件的查询"""
-        queryset = super().get_queryset().select_related("category")
+        # 新增：预加载category和website以提高性能
+        queryset = super().get_queryset().select_related("category", "category__website")
         category_id = self.request.GET.get("category_id")
+        website_id = self.request.GET.get("website_id")  # 新增：获取网站ID筛选参数
         start_date = self.request.GET.get("start_date")
         end_date = self.request.GET.get("end_date")
 
         if category_id:
             queryset = queryset.filter(category_id=category_id)
+        
+        # 新增：按网站类别筛选
+        if website_id:
+            queryset = queryset.filter(category__website_id=website_id)
         
         # 基于开始时间和结束时间进行筛选
         if start_date and end_date:
@@ -127,6 +140,13 @@ class DataRecordListView(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["categories"] = Category.objects.all()  # 用于筛选下拉框
+        context["websites"] = Website.objects.all()  # 新增：添加所有网站列表到上下文
+        
+        # 保存当前筛选参数到上下文，用于模板中显示选中状态
+        context["selected_website_id"] = self.request.GET.get("website_id")
+        context["selected_category_id"] = self.request.GET.get("category_id")
+        context["selected_start_date"] = self.request.GET.get("start_date")
+        context["selected_end_date"] = self.request.GET.get("end_date")
         
         # 获取查询集中所有记录的日期，然后获取对应的DailyNumber
         records = context.get('records', [])
@@ -137,6 +157,24 @@ class DataRecordListView(ListView):
         dates = set()
         for record in records:
             dates.add(record.start_date)
+            
+            # 新增：解析data_value中的生肖并更新parsed_numbers
+            if record.data_value and record.data_value.strip():
+                # 尝试从data_value中提取生肖
+                for zodiac in CHINESE_ZODIAC_MAP.keys():
+                    if zodiac in record.data_value:
+                        # 如果找到了生肖，获取对应的数字列表
+                        zodiac_numbers = get_numbers_by_zodiac(zodiac)
+                        if zodiac_numbers:
+                            # 将生肖对应的数字添加到parsed_numbers
+                            if not record.parsed_numbers:
+                                record.parsed_numbers = []
+                            # 去重并保留原始数字
+                            combined_numbers = list(set(record.parsed_numbers + zodiac_numbers))
+                            # 对数字进行排序
+                            combined_numbers.sort()
+                            record.parsed_numbers = combined_numbers
+            
             # 预处理：为每个记录添加带生肖的数字列表
             if hasattr(record, 'parsed_numbers') and record.parsed_numbers:
                 # 使用get_numbers_with_zodiac函数处理
@@ -476,3 +514,57 @@ def get_records_by_date(request):
         'records': result_data,
         'total': len(result_data)
     })
+
+
+# 网站管理 - 添加新的视图类
+class WebsiteListView(ListView):
+    model = Website
+    template_name = "records/website_list.html"
+    context_object_name = "websites"
+    
+    def dispatch(self, request, *args, **kwargs):
+        # 记录访问日志
+        logger.info(f"访问网站列表界面 - 视图类: WebsiteListView, 模板: {self.template_name}")
+        return super().dispatch(request, *args, **kwargs)
+
+
+class WebsiteCreateView(CreateView):
+    model = Website
+    form_class = WebsiteForm
+    template_name = "records/website_form.html"
+    success_url = reverse_lazy("website_list")
+    success_message = "网站添加成功！"
+    
+    def dispatch(self, request, *args, **kwargs):
+        # 记录访问日志
+        logger.info(f"访问网站创建界面 - 视图类: WebsiteCreateView, 模板: {self.template_name}")
+        return super().dispatch(request, *args, **kwargs)
+
+
+class WebsiteUpdateView(UpdateView):
+    model = Website
+    form_class = WebsiteForm
+    template_name = "records/website_form.html"
+    success_url = reverse_lazy("website_list")
+    success_message = "网站更新成功！"
+    
+    def dispatch(self, request, *args, **kwargs):
+        # 记录访问日志
+        logger.info(f"访问网站更新界面 - 视图类: WebsiteUpdateView, 模板: {self.template_name}")
+        return super().dispatch(request, *args, **kwargs)
+
+
+class WebsiteDeleteView(DeleteView):
+    model = Website
+    template_name = "records/website_confirm_delete.html"
+    success_url = reverse_lazy("website_list")
+    success_message = "网站删除成功！"
+    
+    def dispatch(self, request, *args, **kwargs):
+        # 记录访问日志
+        logger.info(f"访问网站删除界面 - 视图类: WebsiteDeleteView, 模板: {self.template_name}")
+        return super().dispatch(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, self.success_message)
+        return super().delete(request, *args, **kwargs)

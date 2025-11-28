@@ -1,0 +1,16 @@
+{% extends 'records/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>确认删除</h2>
+    
+    <p>您确定要删除网站 "{{ object.name }}" 吗？</p>
+    <p class="text-warning">此操作不可撤销。</p>
+    
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">删除</button>
+        <a href="{% url 'website_list' %}" class="btn btn-secondary">取消</a>
+    </form>
+</div>
+{% endblock %}

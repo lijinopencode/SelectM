@@ -43,64 +43,55 @@
         }
     </style>
 
-    <!-- 调试信息区域  
-    <div class="debug-info">
-        <h4>调试信息 - date_to_daily_number 内容：</h4>
-        {% if date_to_daily_number %}
-            <p>date_to_daily_number 字典内容：</p>
-            <ul>
-                {% for date, daily_number in date_to_daily_number.items %}
-                    <li>日期: {{ date }}, DailyNumber对象: {{ daily_number }}, opened_number: {{ daily_number.opened_number }}</li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p>date_to_daily_number 为空字典</p>
-        {% endif %}
-        
-        <p>数据记录数量: {{ records|length }}</p>
-        {% if records %}
-            <p>第一条记录日期: {{ records.0.start_date }}</p>
-            <p>第一条记录日期是否在date_to_daily_number中: {% if records.0.start_date in date_to_daily_number %}是{% else %}否{% endif %}</p>
-        {% endif %}
-    </div>
-!->
-    <!-- 筛选表单 -->
-    <form method="get" class="card p-3 mb-4">
-        <div class="row g-3">
-            <div class="col-md-3">
-                <label for="category_id" class="form-label">类别</label>
-                <select name="category_id" id="category_id" class="form-select">
-                    <option value="">全部</option>
-                    {% for category in categories %}
-                        <option value="{{ category.id }}" {% if request.GET.category_id == category.id|stringformat:"i" %}selected{% endif %}>
-                            {{ category.name }}
+    <!-- 合并后的筛选表单 -->
+    <form method="get" class="mb-4">
+        <div class="card p-3 mb-4">
+            <div class="row g-3">
+                <!-- 数据来源网站筛选 -->
+                <div class="col-md-3">
+                    <label for="website_id" class="form-label">数据来源网站</label>
+                    <select name="website_id" id="website_id" class="form-select">
+                        <option value="">全部网站</option>
+                        {% for website in websites %}
+                        <option value="{{ website.id }}" {% if selected_website_id == website.id|stringformat:"i" %}selected{% endif %}>
+                            {{ website.name }}
                         </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label for="start_date" class="form-label">开始日期</label>
-                <input type="date" name="start_date" id="start_date" class="form-control" value="{{ request.GET.start_date }}">
-            </div>
-            <div class="col-md-3">
-                <label for="end_date" class="form-label">结束日期</label>
-                <input type="date" name="end_date" id="end_date" class="form-control" 
-                       value="{% if request.GET.end_date %}{{ request.GET.end_date }}{% else %}{% now 'Y-m-d' %}{% endif %}">
-            </div>
-            <!--<div class="col-md-3">
-                <label for="zodiac" class="form-label">生肖</label>
-                <select name="zodiac" id="zodiac" class="form-select">
-                    <option value="">全部</option>
-                    {% for zodiac in chinese_zodiacs %}
-                        <option value="{{ zodiac }}" {% if request.GET.zodiac == zodiac %}selected{% endif %}>
-                            {{ zodiac }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-            !-->
-            <div class="col-md-3 d-flex align-items-end">
-                <button type="submit" class="btn btn-secondary w-100">筛选</button>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- 类别筛选 -->
+                <div class="col-md-3">
+                    <label for="category_id" class="form-label">类别</label>
+                    <select name="category_id" id="category_id" class="form-select">
+                        <option value="">全部分类</option>
+                        {% for category in categories %}
+                            <option value="{{ category.id }}" {% if selected_category_id == category.id|stringformat:"i" %}selected{% endif %}>
+                                {{ category.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- 日期筛选 -->
+                <div class="col-md-3">
+                    <label for="start_date" class="form-label">开始日期</label>
+                    <input type="date" name="start_date" id="start_date" class="form-control" 
+                           value="{% if selected_start_date %}{{ selected_start_date }}{% else %}{% now 'Y-m-d' %}{% endif %}">
+                </div>
+                <div class="col-md-3">
+                    <label for="end_date" class="form-label">结束日期</label>
+                    <input type="date" name="end_date" id="end_date" class="form-control" 
+                           value="{% if selected_end_date %}{{ selected_end_date }}{% else %}{% now 'Y-m-d' %}{% endif %}">
+                </div>
+                
+                <!-- 筛选按钮 -->
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">筛选</button>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <a href="{% url 'data_record_list' %}" class="btn btn-secondary w-100">清除筛选</a>
+                </div>
             </div>
         </div>
     </form>
@@ -148,7 +139,7 @@
                                             {% for number in record.parsed_numbers %}
                                                 {% with zodiac=number|get_zodiac %}
                                                     {% if zodiac %}
-                                                         
+                                                          
                                                         <span 
                                                             class="badge bg-primary {% if number|stringformat:'s' == daily_number.opened_number|stringformat:'s' %}match-highlight{% endif %} m-1" 
                                                             title="{% if number|stringformat:'s' == daily_number.opened_number|stringformat:'s' %}与当日开出数字匹配!{% endif %} 生肖: {{ zodiac }}"

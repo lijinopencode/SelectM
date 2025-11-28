@@ -181,7 +181,7 @@ transform: translateY(-3px);
                     <div class="text-center text-gray-400 py-4">请选择日期查看数据...</div>
                 </div>
                 
-<div class="mt-3 text-sm text-secondary flex justify-between">
+                <div class="mt-3 text-sm text-secondary flex justify-between">
                     <span id="lineCount">找到 0 条记录</span> 
                 </div>
                   
@@ -431,7 +431,7 @@ transform: translateY(-3px);
                 loadRecordsByDate(selectedDate);
             });
         }
-         function loadRecordsByDate(dateStr) {
+        function loadRecordsByDate(dateStr) {
             console.log(`加载日期 ${dateStr} 的数据`);
             const currentDataList = document.getElementById('currentDataList');
             const lineCount = document.getElementById('lineCount');
@@ -461,9 +461,9 @@ transform: translateY(-3px);
                     currentDataList.innerHTML = '';
                     
                     if (data.records.length > 0) {
-                        // 创建记录网格容器
+                        // 创建记录列表
                         const recordsContainer = document.createElement('div');
-                        recordsContainer.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3';
+                        recordsContainer.className = 'space-y-3';
                         
                         data.records.forEach(record => {
                             const dateRange = record.end_date 
@@ -472,11 +472,11 @@ transform: translateY(-3px);
                             
                             // 创建记录项
                             const recordItem = document.createElement('div');
-                            recordItem.className = `p-3 rounded-lg border ${record.is_excluded_group ? 'border-exclude bg-exclude/5' : 'border-gray-200 bg-white'} min-h-[120px]`;
+                            recordItem.className = `p-3 rounded-lg border ${record.is_excluded_group ? 'border-exclude bg-exclude/5' : 'border-gray-200 bg-white'}`;
                             
                             // 记录头部信息
                             const header = document.createElement('div');
-                            header.className = 'flex flex-col mb-2';
+                            header.className = 'flex justify-between items-start mb-2';
                             header.innerHTML = `
                                 <div class="font-medium text-sm">${record.category} - ${record.data_name}</div>
                                 <div class="text-xs text-gray-500">${dateRange}</div>
@@ -527,62 +527,12 @@ transform: translateY(-3px);
                             }
                             
                             // 添加复选框事件监听
-                            const selectBox = selectCheckbox.querySelector('input'); 
-                                selectBox.addEventListener('change', function() {
+                            const selectBox = selectCheckbox.querySelector('input');
+                            selectBox.addEventListener('change', function() {
                                 const recordId = this.getAttribute('data-record-id');
-                                const isSelected = this.checked;
-                                console.log(`${isSelected ? '选择' : '取消选择'} 记录 ${recordId}`);
-                                                            // 如果选中记录，将其数字添加到对比列表
-                                    if (isSelected) {
-                                        // 获取当前记录的数字
-                                        const recordNumbers = record.numbers;
-                                        
-                                        // 查找空的对比列表（textarea值为空）
-                                        let targetList = lists.find(list => list.textarea.value.trim() === '');
-                                        
-                                        // 如果没有找到空列表
-                                        if (!targetList) {
-                                            // 如果列表数量未达到最大值，创建新列表
-                                            if (lists.length < MAX_LISTS) {
-                                                addNewList(record.category);
-                                                
-                                                targetList = lists[lists.length - 1]; // 使用新创建的列表
-                                            } else {
-                                                // 所有列表都有内容且已达到最大数量，提示用户
-                                                alert('所有对比列表都已包含内容，无法添加新内容。请先清空一个列表或删除一个列表。');
-                                                return;
-                                            }
-                                        } else {
-                                            // 更新现有列表的标签
-                                            const listIndex = lists.indexOf(targetList);
-                                            // 更新列表对象的label属性
-                                            targetList.label = record.category;
-                                            // 更新DOM中的标题元素
-                                            const listCard = document.querySelector(`.list-card[data-list-index="${listIndex}"]`);
-                                            if (listCard) {
-                                                const titleElement = listCard.querySelector('h2');
-                                                if (titleElement) {
-                                                    // 保留颜色指示器，只更新文本内容
-                                                    const colorIndicator = titleElement.querySelector('span');
-                                                    titleElement.innerHTML = `
-                                                        <span class="inline-block w-3 h-3 rounded-full" style="background-color: ${targetList.color}"></span>
-                                                        ${record.category}
-                                                    `;
-                                                }
-                                            }
-                                        }
-
-                                        // 将记录的数字添加到空的对比列表的textarea中，使用逗号分隔
-                                        targetList.textarea.value = recordNumbers.join(', ');
-                                        
-                                        // 触发input事件以更新解析结果
-                                        targetList.textarea.dispatchEvent(new Event('input'));
-                                        
-                                        // 显示成功提示 
-                                        console.log(`已将记录 ${record.category} - ${record.data_name} 的 ${recordNumbers.length} 个数字添加到对比列表 ${targetList.label}`);
-                                    } 
-                                }
-                            );
+                                console.log(`${this.checked ? '选择' : '取消选择'} 记录 ${recordId}`);
+                                // 这里可以添加选择后的逻辑
+                            });
                             
                             const excludeBox = excludeCheckbox.querySelector('input');
                             excludeBox.addEventListener('change', function() {
@@ -602,7 +552,7 @@ transform: translateY(-3px);
                             
                             // 组装记录项
                             recordItem.appendChild(header);
-                            recordItem.appendChild(optionsContainer);
+                            recordItem.appendChild(optionsContainer); // 添加选项区域
                             recordItem.appendChild(numbersContainer);
                             recordsContainer.appendChild(recordItem);
                         });
@@ -621,18 +571,14 @@ transform: translateY(-3px);
 
 
         // 添加新对比列表
-        function addNewList(listName="") {
-            console.log("ssss"+listName)
+        function addNewList() {
             if (lists.length >= MAX_LISTS) {
                 alert(`最多只能添加 ${MAX_LISTS} 个对比列表`);
                 return;
             }
-    
+            
             const listIndex = lists.length;
             const listLabel = LIST_LABELS[listIndex];
-            // 优先使用传入的listName，如果为空则使用默认的listLabel
-            const displayLabel = listName.trim() !== "" ? listName : listLabel;
-            
             const listColor = getComputedStyle(document.documentElement)
                 .getPropertyValue(`--tw-color-listColors-${listIndex}`)
                 .trim() || '#3b82f6';
@@ -641,12 +587,12 @@ transform: translateY(-3px);
             const listCard = document.createElement('div');
             listCard.className = 'bg-white rounded-xl shadow-md p-5 input-area animate-fadeIn list-card';
             listCard.dataset.listIndex = listIndex;
-
+            
             listCard.innerHTML = `
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-lg font-semibold text-dark flex items-center">
                         <span class="inline-block w-3 h-3 rounded-full" style="background-color: ${listColor}"></span>
-                        对比列表 ${displayLabel}
+                        对比列表 ${listLabel}
                     </h2>
                     <div class="flex space-x-2">
                         <button class="sort-list text-sm text-secondary hover:text-primary transition-all-200">
@@ -708,7 +654,7 @@ transform: translateY(-3px);
             
             // 初始化列表数据
             lists.push({
-                label: displayLabel,
+                label: listLabel,
                 color: listColor,
                 textarea: textarea,
                 countElement: listCard.querySelector('.list-count'),
@@ -984,7 +930,7 @@ transform: translateY(-3px);
         // 更新列表索引和标签
         function updateListIndicesAndLabels() {
             lists.forEach((list, index) => {
-                //list.label = LIST_LABELS[index];
+                list.label = LIST_LABELS[index];
                 const listCard = list.textarea.closest('.list-card');
                 if (listCard) {
                     listCard.dataset.listIndex = index;

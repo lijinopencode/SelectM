@@ -1,16 +1,29 @@
 # 添加必要的导入语句
 from django import forms
 from datetime import date, datetime
-from .models import Category, DataRecord, DailyNumber
+from .models import Category, DataRecord, DailyNumber, Website  # 添加Website导入
 
 # 添加CategoryForm表单类
 class CategoryForm(forms.ModelForm):
     """类别表单"""
     class Meta:
         model = Category
-        fields = ['name', 'description']
+        fields = ['name', 'description', 'website']  # 添加website字段
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'website': forms.Select(attrs={'class': 'form-control'})  # 添加website选择框
+        }
+
+# 添加WebsiteForm表单类
+class WebsiteForm(forms.ModelForm):
+    """网站表单"""
+    class Meta:
+        model = Website
+        fields = ['name', 'url', 'description']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'url': forms.URLInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 

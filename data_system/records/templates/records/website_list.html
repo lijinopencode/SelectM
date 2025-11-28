@@ -1,0 +1,40 @@
+{% extends 'records/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>网站管理</h2>
+    <div class="mb-3">
+        <a href="{% url 'website_add' %}" class="btn btn-primary">添加新网站</a>
+    </div>
+    
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>名称</th>
+                <th>URL</th>
+                <th>描述</th>
+                <th>创建时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for website in object_list %}
+            <tr>
+                <td>{{ website.name }}</td>
+                <td><a href="{{ website.url }}" target="_blank">{{ website.url }}</a></td>
+                <td>{{ website.description }}</td>
+                <td>{{ website.created_at }}</td>
+                <td>
+                    <a href="{% url 'website_edit' website.pk %}" class="btn btn-sm btn-info">编辑</a>
+                    <a href="{% url 'website_delete' website.pk %}" class="btn btn-sm btn-danger">删除</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="text-center">暂无网站数据</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

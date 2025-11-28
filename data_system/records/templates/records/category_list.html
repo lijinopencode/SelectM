@@ -8,11 +8,14 @@
         <a href="{% url 'category_add' %}" class="btn btn-primary">添加新类别</a>
     </div>
 
-    <table class="table table-striped">
+    <!-- 移除所有可能干扰的CSS样式 -->
+
+    <table class="table">
         <thead>
             <tr>
                 <th>ID</th>
                 <th>类别名称</th>
+                <th>数据来源网站</th>
                 <th>描述</th>
                 <th>创建时间</th>
                 <th>操作</th>
@@ -20,9 +23,11 @@
         </thead>
         <tbody>
             {% for category in categories %}
-            <tr>
+            <!-- 使用最简单的背景色设置方法 -->
+            <tr class="website-group-{{ category.website_id|default:0 }}">
                 <td>{{ category.id }}</td>
                 <td>{{ category.name }}</td>
+                <td>{{ category.website.name|default:"-" }}</td>
                 <td>{{ category.description|default:"-" }}</td>
                 <td>{{ category.created_at|date:"Y-m-d H:i" }}</td>
                 <td>
@@ -32,9 +37,24 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="5" class="text-center">暂无类别，请添加</td>
+                <td colspan="6" class="text-center">暂无类别，请添加</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    
+    <!-- 在页面底部添加直接的CSS样式，确保高优先级 -->
+    <style>
+        /* 为不同网站ID的类别设置不同背景色 */
+        .website-group-1 { background-color: #FFE5E5 !important; }
+        .website-group-2 { background-color: #E5FFE5 !important; }
+        .website-group-3 { background-color: #E5E5FF !important; }
+        .website-group-4 { background-color: #FFFFE5 !important; }
+        .website-group-5 { background-color: #E5FFFF !important; }
+        .website-group-0 { background-color: #FFFFFF !important; }
+        /* 覆盖任何可能的Bootstrap样式 */
+        .table tbody tr { background-color: inherit !important; }
+        /* 确保表格行样式应用 */
+        tr[class*="website-group-"] { display: table-row !important; }
+    </style>
 {% endblock %}
